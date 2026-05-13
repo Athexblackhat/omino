@@ -1,0 +1,1025 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>OMINO — The Eye That Sees All</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;600;700&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --red:     #e94560;
+    --purple:  #533483;
+    --navy:    #0f3460;
+    --dark:    #16213e;
+    --darkest: #1a1a2e;
+    --black:   #0a0a14;
+    --white:   #e8e8f0;
+    --dim:     #6e7190;
+    --glow-red:    0 0 20px #e9456066, 0 0 60px #e9456022;
+    --glow-purple: 0 0 20px #53348366, 0 0 60px #53348322;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── CANVAS BACKGROUND ── */
+  #matrix-canvas {
+    position: fixed; top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 0; opacity: 0.07;
+    pointer-events: none;
+  }
+
+  /* ── LAYOUT ── */
+  .page { position: relative; z-index: 1; }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+
+  /* ── NAV ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: linear-gradient(180deg, rgba(10,10,20,0.97) 0%, transparent 100%);
+    padding: 1rem 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    border-bottom: 1px solid rgba(233,69,96,0.15);
+    backdrop-filter: blur(10px);
+  }
+  .nav-logo {
+    font-family: 'Orbitron', monospace;
+    font-weight: 900; font-size: 1.2rem;
+    color: var(--red);
+    text-shadow: var(--glow-red);
+    letter-spacing: 0.15em;
+  }
+  .nav-links { display: flex; gap: 2rem; }
+  .nav-links a {
+    color: var(--dim); text-decoration: none;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.8rem; letter-spacing: 0.1em;
+    transition: color 0.2s;
+  }
+  .nav-links a:hover { color: var(--red); }
+
+  /* ── HERO ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    text-align: center;
+    padding: 6rem 2rem 4rem;
+    position: relative;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(83,52,131,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* Eye SVG */
+  .eye-wrap {
+    margin-bottom: 2.5rem;
+    display: flex; justify-content: center;
+  }
+  .eye-svg { width: 120px; height: 80px; }
+  .eye-outer { animation: eyePulse 3s ease-in-out infinite; }
+  .eye-iris  { animation: irisGlow 3s ease-in-out infinite; }
+  .eye-scan  { animation: scanLine 2s linear infinite; }
+  @keyframes eyePulse {
+    0%,100% { stroke: #e94560; filter: drop-shadow(0 0 8px #e94560); }
+    50%      { stroke: #533483; filter: drop-shadow(0 0 16px #533483); }
+  }
+  @keyframes irisGlow {
+    0%,100% { fill: #e94560; opacity: 0.9; }
+    50%      { fill: #533483; opacity: 1; }
+  }
+  @keyframes scanLine {
+    0%   { transform: translateY(-30px); opacity: 0; }
+    20%  { opacity: 0.8; }
+    80%  { opacity: 0.8; }
+    100% { transform: translateY(30px); opacity: 0; }
+  }
+
+  .hero-symbol {
+    font-size: 3.5rem; color: var(--red);
+    text-shadow: var(--glow-red);
+    animation: symbolPulse 4s ease-in-out infinite;
+    display: block; margin-bottom: 0.5rem;
+  }
+  @keyframes symbolPulse {
+    0%,100% { opacity: 1; text-shadow: var(--glow-red); }
+    50%      { opacity: 0.7; text-shadow: 0 0 40px #e94560; }
+  }
+
+  .hero-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(2.8rem, 7vw, 5.5rem);
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    line-height: 1;
+    color: var(--white);
+    text-shadow: 0 0 40px rgba(233,69,96,0.3);
+    margin-bottom: 0.5rem;
+    animation: titleIn 1s ease forwards;
+  }
+  @keyframes titleIn {
+    from { opacity: 0; transform: translateY(-30px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-subtitle {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 1rem; color: var(--red);
+    letter-spacing: 0.3em; text-transform: uppercase;
+    margin-bottom: 1.5rem;
+    animation: fadeUp 1s 0.3s ease both;
+  }
+  .hero-tagline {
+    font-family: 'Rajdhani', sans-serif;
+    font-size: 1.25rem; font-weight: 300;
+    color: var(--dim); max-width: 600px; margin: 0 auto 2.5rem;
+    font-style: italic;
+    animation: fadeUp 1s 0.5s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Badges */
+  .badges {
+    display: flex; flex-wrap: wrap; gap: 0.6rem;
+    justify-content: center; margin-bottom: 2.5rem;
+    animation: fadeUp 1s 0.7s ease both;
+  }
+  .badge {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.72rem; letter-spacing: 0.1em;
+    padding: 0.35rem 0.9rem;
+    border: 1px solid; border-radius: 2px;
+    transition: all 0.2s;
+  }
+  .badge-red    { border-color: var(--red);    color: var(--red);    background: rgba(233,69,96,0.08); }
+  .badge-purple { border-color: var(--purple); color: var(--purple); background: rgba(83,52,131,0.08); }
+  .badge-navy   { border-color: var(--navy);   color: #4a8fd4;       background: rgba(15,52,96,0.08); }
+  .badge:hover { filter: brightness(1.3); transform: translateY(-1px); }
+
+  /* CTA buttons */
+  .hero-cta {
+    display: flex; gap: 1rem; justify-content: center; flex-wrap: wrap;
+    animation: fadeUp 1s 0.9s ease both;
+  }
+  .btn {
+    font-family: 'Orbitron', monospace;
+    font-size: 0.75rem; font-weight: 700;
+    letter-spacing: 0.2em; text-transform: uppercase;
+    padding: 0.85rem 2rem;
+    border: 2px solid; border-radius: 2px;
+    cursor: pointer; text-decoration: none;
+    transition: all 0.25s; display: inline-block;
+  }
+  .btn-primary {
+    background: var(--red); border-color: var(--red); color: #fff;
+    box-shadow: var(--glow-red);
+  }
+  .btn-primary:hover { background: transparent; color: var(--red); }
+  .btn-secondary {
+    background: transparent; border-color: var(--purple); color: var(--purple);
+  }
+  .btn-secondary:hover { background: var(--purple); color: #fff; box-shadow: var(--glow-purple); }
+
+  /* scroll indicator */
+  .scroll-hint {
+    position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+    animation: fadeUp 1s 1.5s ease both;
+  }
+  .scroll-hint span { font-family: 'Share Tech Mono', monospace; font-size: 0.65rem; color: var(--dim); letter-spacing: 0.2em; }
+  .scroll-arrow { width: 20px; height: 20px; border-right: 2px solid var(--red); border-bottom: 2px solid var(--red); transform: rotate(45deg); animation: bounce 1.5s infinite; }
+  @keyframes bounce { 0%,100% { transform: rotate(45deg) translateY(0); } 50% { transform: rotate(45deg) translateY(6px); } }
+
+  /* ── STATS STRIP ── */
+  .stats-strip {
+    background: linear-gradient(90deg, var(--darkest) 0%, rgba(83,52,131,0.15) 50%, var(--darkest) 100%);
+    border-top: 1px solid rgba(233,69,96,0.2);
+    border-bottom: 1px solid rgba(233,69,96,0.2);
+    padding: 2rem 0;
+  }
+  .stats-grid {
+    display: flex; justify-content: center; flex-wrap: wrap; gap: 0;
+  }
+  .stat {
+    text-align: center; padding: 0 3rem;
+    border-right: 1px solid rgba(255,255,255,0.07);
+    animation: countUp 1s ease both;
+  }
+  .stat:last-child { border-right: none; }
+  .stat-num {
+    font-family: 'Orbitron', monospace; font-size: 2.2rem; font-weight: 900;
+    color: var(--red); display: block; line-height: 1;
+    text-shadow: var(--glow-red);
+  }
+  .stat-label {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.7rem;
+    color: var(--dim); letter-spacing: 0.15em; text-transform: uppercase; margin-top: 0.3rem;
+  }
+
+  /* ── SECTIONS ── */
+  section { padding: 6rem 0; }
+
+  .section-label {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.7rem; letter-spacing: 0.4em; text-transform: uppercase;
+    color: var(--red); margin-bottom: 0.75rem;
+  }
+  .section-title {
+    font-family: 'Orbitron', monospace;
+    font-size: clamp(1.5rem, 3vw, 2.2rem);
+    font-weight: 700; letter-spacing: 0.05em;
+    color: var(--white); margin-bottom: 1rem;
+  }
+  .section-lead {
+    color: var(--dim); font-size: 1.05rem; max-width: 600px;
+    margin-bottom: 3rem;
+  }
+
+  /* ── FEATURES GRID ── */
+  .features-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1px; background: rgba(233,69,96,0.1);
+    border: 1px solid rgba(233,69,96,0.1);
+  }
+  .feature-card {
+    background: var(--darkest);
+    padding: 2rem;
+    transition: all 0.3s;
+    position: relative; overflow: hidden;
+  }
+  .feature-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, transparent, var(--red), transparent);
+    transform: scaleX(0); transition: transform 0.3s;
+  }
+  .feature-card:hover { background: rgba(83,52,131,0.12); }
+  .feature-card:hover::before { transform: scaleX(1); }
+  .feature-icon {
+    font-size: 1.8rem; margin-bottom: 1rem; display: block;
+    filter: drop-shadow(0 0 8px rgba(233,69,96,0.5));
+  }
+  .feature-title {
+    font-family: 'Orbitron', monospace; font-size: 0.85rem;
+    font-weight: 700; letter-spacing: 0.1em; color: var(--white);
+    margin-bottom: 0.75rem; text-transform: uppercase;
+  }
+  .feature-desc { color: var(--dim); font-size: 0.95rem; line-height: 1.6; }
+
+  /* ── SCAN MODES TABLE ── */
+  .modes-table-wrap {
+    overflow-x: auto;
+    border: 1px solid rgba(233,69,96,0.15);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { background: rgba(233,69,96,0.12); }
+  th {
+    font-family: 'Orbitron', monospace; font-size: 0.7rem;
+    letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--red); padding: 1rem 1.25rem; text-align: left;
+    border-bottom: 1px solid rgba(233,69,96,0.2);
+  }
+  td {
+    padding: 0.9rem 1.25rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    font-size: 0.95rem; vertical-align: middle;
+  }
+  td:first-child {
+    font-family: 'Share Tech Mono', monospace;
+    color: var(--red); font-size: 0.85rem;
+  }
+  tr:hover td { background: rgba(83,52,131,0.08); }
+  .pill {
+    display: inline-block; padding: 0.15rem 0.6rem;
+    border-radius: 2px; font-size: 0.72rem; font-weight: 600;
+    font-family: 'Share Tech Mono', monospace;
+  }
+  .pill-green  { background: rgba(0,200,100,0.1);  color: #00c864; border: 1px solid rgba(0,200,100,0.3); }
+  .pill-yellow { background: rgba(255,180,0,0.1);  color: #ffb400; border: 1px solid rgba(255,180,0,0.3); }
+  .pill-red    { background: rgba(233,69,96,0.1);  color: var(--red); border: 1px solid rgba(233,69,96,0.3); }
+  .pill-max    { background: rgba(150,0,50,0.15);  color: #ff2a5e; border: 1px solid rgba(233,69,96,0.5); box-shadow: 0 0 8px rgba(233,69,96,0.2); }
+
+  /* ── INTEGRATIONS ── */
+  .integrations-cats { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1.5rem; }
+  .int-cat {
+    border: 1px solid rgba(255,255,255,0.06);
+    background: var(--darkest); padding: 1.5rem; border-radius: 2px;
+    transition: border-color 0.3s;
+  }
+  .int-cat:hover { border-color: rgba(83,52,131,0.5); }
+  .int-cat-title {
+    font-family: 'Orbitron', monospace; font-size: 0.7rem;
+    letter-spacing: 0.15em; color: var(--purple); margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+  .int-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .int-tag {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.72rem;
+    padding: 0.25rem 0.6rem;
+    background: rgba(255,255,255,0.04); color: var(--dim);
+    border: 1px solid rgba(255,255,255,0.07);
+    transition: all 0.2s;
+  }
+  .int-tag:hover { color: var(--white); border-color: rgba(83,52,131,0.5); background: rgba(83,52,131,0.1); }
+
+  /* ── TERMINAL ── */
+  .terminal {
+    background: #080810; border: 1px solid rgba(233,69,96,0.2);
+    border-radius: 4px; overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04);
+  }
+  .terminal-bar {
+    background: rgba(233,69,96,0.1); padding: 0.75rem 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+    border-bottom: 1px solid rgba(233,69,96,0.15);
+  }
+  .terminal-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .dot-red    { background: #e94560; box-shadow: 0 0 6px #e94560; }
+  .dot-yellow { background: #ffb400; }
+  .dot-green  { background: #00c864; }
+  .terminal-title {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.72rem;
+    color: var(--dim); margin-left: 0.5rem; letter-spacing: 0.1em;
+  }
+  .terminal-body { padding: 1.5rem; font-family: 'Share Tech Mono', monospace; font-size: 0.85rem; line-height: 1.9; }
+  .t-prompt { color: var(--red); }
+  .t-cmd    { color: var(--white); }
+  .t-comment { color: #3a3a5a; }
+  .t-out    { color: #00c864; }
+  .t-info   { color: var(--purple); }
+  .t-warn   { color: #ffb400; }
+  .t-cursor { display: inline-block; width: 8px; height: 1em; background: var(--red); animation: blink 1s step-end infinite; vertical-align: middle; margin-left: 2px; }
+  @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+
+  /* ── INSTALL TABS ── */
+  .install-tabs { display: flex; gap: 0; border-bottom: 1px solid rgba(233,69,96,0.2); margin-bottom: 0; }
+  .tab-btn {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.78rem;
+    letter-spacing: 0.1em; padding: 0.75rem 1.5rem;
+    background: none; border: none; color: var(--dim);
+    cursor: pointer; transition: all 0.2s;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab-btn.active { color: var(--red); border-bottom-color: var(--red); }
+  .tab-btn:hover { color: var(--white); }
+  .tab-pane { display: none; }
+  .tab-pane.active { display: block; }
+
+  /* ── ARCHITECTURE VISUAL ── */
+  .arch-flow {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 1.5rem;
+    align-items: center; margin-top: 2rem;
+  }
+  .arch-col { display: flex; flex-direction: column; gap: 0.75rem; }
+  .arch-box {
+    background: var(--darkest); border: 1px solid rgba(255,255,255,0.07);
+    padding: 0.85rem 1rem; text-align: center;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.78rem;
+    color: var(--dim); transition: all 0.3s; cursor: default;
+  }
+  .arch-box:hover { border-color: var(--purple); color: var(--white); }
+  .arch-box.accent { border-color: rgba(233,69,96,0.3); color: var(--white); }
+  .arch-center-box {
+    background: rgba(233,69,96,0.1); border: 2px solid var(--red);
+    padding: 1.5rem; text-align: center;
+    box-shadow: var(--glow-red); min-width: 140px;
+  }
+  .arch-engine {
+    font-family: 'Orbitron', monospace; font-size: 0.9rem;
+    font-weight: 900; color: var(--red); display: block;
+    text-shadow: var(--glow-red); letter-spacing: 0.1em;
+  }
+  .arch-engine-sub {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.65rem;
+    color: var(--dim); display: block; margin-top: 0.3rem;
+  }
+  .arch-arrow {
+    font-size: 1.5rem; color: var(--red); text-align: center;
+    text-shadow: var(--glow-red); animation: arrowPulse 2s ease-in-out infinite;
+  }
+  @keyframes arrowPulse {
+    0%,100% { opacity: 1; } 50% { opacity: 0.4; }
+  }
+
+  /* ── TEAM ── */
+  .team-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; }
+  .team-card {
+    background: var(--darkest); border: 1px solid rgba(255,255,255,0.06);
+    padding: 2rem; text-align: center; transition: border-color 0.3s;
+  }
+  .team-card:hover { border-color: rgba(233,69,96,0.3); }
+  .team-avatar {
+    width: 80px; height: 80px; border-radius: 50%;
+    background: linear-gradient(135deg, var(--red), var(--purple));
+    margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center;
+    font-size: 2rem; border: 2px solid rgba(233,69,96,0.3);
+  }
+  .team-name { font-family: 'Orbitron', monospace; font-size: 0.9rem; font-weight: 700; color: var(--white); margin-bottom: 0.25rem; }
+  .team-role { font-family: 'Share Tech Mono', monospace; font-size: 0.72rem; color: var(--red); letter-spacing: 0.1em; margin-bottom: 0.75rem; }
+  .team-handle { color: var(--dim); font-size: 0.85rem; }
+
+  /* ── WARNING BANNER ── */
+  .warning-banner {
+    background: rgba(233,69,96,0.06); border: 1px solid rgba(233,69,96,0.3);
+    border-left: 4px solid var(--red); padding: 1.25rem 1.5rem;
+    margin: 2rem 0;
+  }
+  .warning-banner strong { color: var(--red); font-family: 'Orbitron', monospace; font-size: 0.8rem; letter-spacing: 0.1em; display: block; margin-bottom: 0.4rem; }
+  .warning-banner p { color: var(--dim); font-size: 0.9rem; }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid rgba(233,69,96,0.15);
+    background: var(--darkest);
+    padding: 3rem 0; text-align: center;
+  }
+  .footer-symbol { font-size: 2rem; color: var(--red); text-shadow: var(--glow-red); margin-bottom: 0.5rem; display: block; }
+  .footer-title {
+    font-family: 'Orbitron', monospace; font-size: 1.1rem; font-weight: 900;
+    letter-spacing: 0.2em; color: var(--white); margin-bottom: 0.4rem;
+  }
+  .footer-tagline { color: var(--dim); font-size: 0.85rem; font-style: italic; margin-bottom: 1.5rem; }
+  .footer-links { display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1.5rem; }
+  .footer-links a {
+    font-family: 'Share Tech Mono', monospace; font-size: 0.75rem;
+    color: var(--dim); text-decoration: none; letter-spacing: 0.1em; transition: color 0.2s;
+  }
+  .footer-links a:hover { color: var(--red); }
+  .footer-copy { font-size: 0.8rem; color: #333353; font-family: 'Share Tech Mono', monospace; }
+
+  /* ── DIVIDER ── */
+  .divider {
+    border: none; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(233,69,96,0.3), transparent);
+    margin: 0;
+  }
+
+  /* ── SCROLL REVEAL ── */
+  .reveal { opacity: 0; transform: translateY(30px); transition: opacity 0.7s ease, transform 0.7s ease; }
+  .reveal.visible { opacity: 1; transform: translateY(0); }
+
+  /* ── SCAN LINE EFFECT ── */
+  body::after {
+    content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 9999;
+    background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 768px) {
+    .nav-links { display: none; }
+    .stats-strip .stat { padding: 1rem 1.5rem; }
+    .arch-flow { grid-template-columns: 1fr; }
+    .arch-arrow { transform: rotate(90deg); }
+  }
+
+  /* ── GLITCH TEXT ── */
+  @keyframes glitch {
+    0%,100% { clip-path: inset(0 0 95% 0); transform: translate(3px,0); }
+    10%      { clip-path: inset(40% 0 50% 0); transform: translate(-3px,0); }
+    20%      { clip-path: inset(80% 0 5% 0);  transform: translate(3px,0); }
+    30%      { clip-path: inset(10% 0 85% 0); transform: translate(0,0); }
+    40%      { clip-path: inset(60% 0 30% 0); transform: translate(-3px,0); }
+    50%      { clip-path: inset(20% 0 70% 0); transform: translate(3px,0); }
+  }
+  .glitch { position: relative; display: inline-block; }
+  .glitch::before, .glitch::after {
+    content: attr(data-text); position: absolute; inset: 0;
+    font-family: inherit; font-size: inherit; font-weight: inherit;
+  }
+  .glitch::before { color: #e94560; animation: glitch 3s infinite; left: 2px; opacity: 0.7; }
+  .glitch::after  { color: #533483; animation: glitch 3s 0.15s infinite; left: -2px; opacity: 0.7; }
+
+  /* ── TIMELINE ── */
+  .timeline { position: relative; padding-left: 2rem; }
+  .timeline::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 1px; background: linear-gradient(180deg, var(--red), var(--purple), transparent); }
+  .tl-item { position: relative; padding: 0 0 2rem 2rem; }
+  .tl-item::before {
+    content: ''; position: absolute; left: -4px; top: 6px;
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--red); box-shadow: 0 0 10px var(--red);
+  }
+  .tl-year { font-family: 'Orbitron', monospace; font-size: 0.72rem; color: var(--red); letter-spacing: 0.15em; margin-bottom: 0.25rem; }
+  .tl-title { font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 1rem; color: var(--white); margin-bottom: 0.25rem; }
+  .tl-desc { color: var(--dim); font-size: 0.9rem; }
+
+  /* Quick command highlight */
+  .cmd-block {
+    background: #080810; border-left: 3px solid var(--red);
+    padding: 1rem 1.25rem; margin: 1rem 0;
+    font-family: 'Share Tech Mono', monospace; font-size: 0.85rem;
+    color: var(--white);
+  }
+  .cmd-block .comment { color: #3a3a5a; }
+
+</style>
+</head>
+<body>
+<canvas id="matrix-canvas"></canvas>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">🜛 OMINO</div>
+  <div class="nav-links">
+    <a href="#overview">Overview</a>
+    <a href="#features">Features</a>
+    <a href="#modes">Modes</a>
+    <a href="#install">Install</a>
+    <a href="#integrations">Integrations</a>
+    <a href="#team">Team</a>
+  </div>
+</nav>
+
+<div class="page">
+
+<!-- HERO -->
+<section class="hero" id="top">
+  <div style="text-align:center">
+    <div class="eye-wrap">
+      <svg class="eye-svg" viewBox="0 0 160 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse class="eye-outer" cx="80" cy="45" rx="75" ry="38" stroke="#e94560" stroke-width="2" fill="none"/>
+        <ellipse class="eye-outer" cx="80" cy="45" rx="60" ry="28" stroke="#533483" stroke-width="1" fill="none" style="animation-delay:0.5s"/>
+        <circle class="eye-iris" cx="80" cy="45" r="22" fill="#e94560" opacity="0.9"/>
+        <circle cx="80" cy="45" r="12" fill="#080810"/>
+        <circle cx="80" cy="45" r="5" fill="#e94560" opacity="0.8"/>
+        <circle cx="73" cy="38" r="3" fill="white" opacity="0.5"/>
+        <line class="eye-scan" x1="20" y1="45" x2="140" y2="45" stroke="#e94560" stroke-width="1" opacity="0.6"/>
+      </svg>
+    </div>
+    <h1 class="hero-title glitch" data-text="OMINO">OMINO</h1>
+    <div class="hero-subtitle">Black Hat Edition · 2026</div>
+    <p class="hero-tagline">"In the shadows, it watches. In silence, it learns. When the time comes, it strikes."</p>
+    <div class="badges">
+      <span class="badge badge-red">v11.0 RELEASE</span>
+      <span class="badge badge-purple">MIT LICENSE</span>
+      <span class="badge badge-navy">90+ INTEGRATIONS</span>
+      <span class="badge badge-red">SINCE 2015</span>
+      <span class="badge badge-purple">35+ CONTRIBUTORS</span>
+      <span class="badge badge-navy">DOCKER READY</span>
+    </div>
+    <div class="hero-cta">
+      <a href="#install" class="btn btn-primary">Quick Install</a>
+      <a href="#overview" class="btn btn-secondary">Documentation</a>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>Scroll</span>
+    <div class="scroll-arrow"></div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats-strip">
+  <div class="stats-grid">
+    <div class="stat reveal"><span class="stat-num">500+</span><span class="stat-label">Red Teams</span></div>
+    <div class="stat reveal"><span class="stat-num">90+</span><span class="stat-label">Integrations</span></div>
+    <div class="stat reveal"><span class="stat-num">10K+</span><span class="stat-label">Detections</span></div>
+    <div class="stat reveal"><span class="stat-num">600+</span><span class="stat-label">Exploits</span></div>
+    <div class="stat reveal"><span class="stat-num">11+</span><span class="stat-label">Years Active</span></div>
+  </div>
+</div>
+
+<hr class="divider"/>
+
+<!-- OVERVIEW -->
+<section id="overview">
+  <div class="container">
+    <div class="section-label">// Overview</div>
+    <h2 class="section-title reveal">The Advanced Offensive Security Platform</h2>
+    <p class="section-lead reveal">Built by pentesters, for pentesters. OMINO consolidates reconnaissance, vulnerability scanning, exploitation, and reporting into one unified workspace — battle-tested in the field since 2015.</p>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:3rem;align-items:start;" class="reveal">
+      <!-- Architecture visual -->
+      <div>
+        <div style="margin-bottom:1rem;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--dim);letter-spacing:0.15em;">// SYSTEM ARCHITECTURE</div>
+        <div class="arch-flow" style="grid-template-columns:1fr auto 1fr">
+          <div class="arch-col">
+            <div class="arch-box accent">Terminal CLI</div>
+            <div class="arch-box accent">Web UI</div>
+            <div class="arch-box accent">REST API v1.0</div>
+          </div>
+          <div>
+            <div class="arch-arrow">⟶</div>
+            <div class="arch-center-box" style="margin:0.5rem 0">
+              <span class="arch-engine">ENGINE</span>
+              <span class="arch-engine-sub">OMINO Core</span>
+            </div>
+            <div class="arch-arrow">⟶</div>
+          </div>
+          <div class="arch-col">
+            <div class="arch-box">Recon Phase</div>
+            <div class="arch-box">Vuln Scan</div>
+            <div class="arch-box">Exploitation</div>
+            <div class="arch-box">Reporting</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div>
+        <div style="margin-bottom:1rem;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--dim);letter-spacing:0.15em;">// EVOLUTION TIMELINE</div>
+        <div class="timeline">
+          <div class="tl-item"><div class="tl-year">2015</div><div class="tl-title">Community Edition</div><div class="tl-desc">First public release</div></div>
+          <div class="tl-item"><div class="tl-year">2018</div><div class="tl-title">Professional v5</div><div class="tl-desc">Web UI introduced</div></div>
+          <div class="tl-item"><div class="tl-year">2020</div><div class="tl-title">Professional v8</div><div class="tl-desc">Docker support added</div></div>
+          <div class="tl-item"><div class="tl-year">2022</div><div class="tl-title">Professional v10</div><div class="tl-desc">SC0PE framework integration</div></div>
+          <div class="tl-item"><div class="tl-year">2024</div><div class="tl-title">SE v11 — Enterprise</div><div class="tl-desc">API v1.0, SOAR, SIEM</div></div>
+          <div class="tl-item" style="padding-bottom:0"><div class="tl-year">2026</div><div class="tl-title" style="color:var(--red)">Black Hat Edition ★</div><div class="tl-desc">Animated UI, multi-distro, full rebranding</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- FEATURES -->
+<section id="features">
+  <div class="container">
+    <div class="section-label">// Key Features</div>
+    <h2 class="section-title reveal">Everything a Red Team Needs</h2>
+    <p class="section-lead reveal">90+ tools orchestrated. One command. Zero compromise.</p>
+    <div class="features-grid reveal">
+      <div class="feature-card">
+        <span class="feature-icon">🔍</span>
+        <div class="feature-title">Reconnaissance Engine</div>
+        <div class="feature-desc">OSINT gathering, subdomain enumeration, port scanning, and service detection — passive and active modes built in.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🛡️</span>
+        <div class="feature-title">Vulnerability Scanning</div>
+        <div class="feature-desc">Nuclei templates, Nessus, OpenVAS, and the SC0PE framework. 10,000+ detection signatures with false-positive reduction.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">💥</span>
+        <div class="feature-title">Auto-Exploitation</div>
+        <div class="feature-desc">Metasploit auto-exploit chains, custom payloads, brute force attacks, and credential harvesting — all automated.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📊</span>
+        <div class="feature-title">Advanced Reporting</div>
+        <div class="feature-desc">Real-time dashboards, HTML/PDF/CSV/Excel exports, Slack notifications, and compliance mapping built in.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🐳</span>
+        <div class="feature-title">Docker-First Deploy</div>
+        <div class="feature-desc">Universal image for Kali and BlackArch. Docker Compose orchestration. One-command environment spin-up.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🖥️</span>
+        <div class="feature-title">Animated Terminal UI</div>
+        <div class="feature-desc">Matrix rain effects, gradient progress bars, spinners, and color-coded severity output. Security tools that look the part.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🔌</span>
+        <div class="feature-title">REST API v1.0</div>
+        <div class="feature-desc">JSON API for CI/CD pipelines, SOAR, and SIEM integration. 100 req/min. Bearer token auth. Full programmatic control.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🤖</span>
+        <div class="feature-title">AI / LLM Integration</div>
+        <div class="feature-desc">Native integrations with OpenAI, Claude, and Gemini for AI-assisted analysis and intelligent vulnerability prioritization.</div>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🗓️</span>
+        <div class="feature-title">Scheduled Scanning</div>
+        <div class="feature-desc">Cron-integrated daily, weekly, and monthly scan scheduling. Continuous monitoring with workspace-based project management.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- SCAN MODES -->
+<section id="modes">
+  <div class="container">
+    <div class="section-label">// Scan Modes</div>
+    <h2 class="section-title reveal">14 Modes. One Platform.</h2>
+    <p class="section-lead reveal">From covert OSINT to all-out nuke — dial in the aggression level your engagement demands.</p>
+    <div class="modes-table-wrap reveal">
+      <table>
+        <thead>
+          <tr>
+            <th>Mode</th>
+            <th>Description</th>
+            <th>Aggression</th>
+            <th>Noise</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>normal</td><td>Active + passive scan of target and open ports</td><td><span class="pill pill-yellow">Medium</span></td><td><span class="pill pill-yellow">Medium</span></td></tr>
+          <tr><td>stealth</td><td>Quick, mostly non-intrusive enumeration</td><td><span class="pill pill-green">Low</span></td><td><span class="pill pill-green">Low</span></td></tr>
+          <tr><td>flyover</td><td>Fast multi-threaded high-level scans</td><td><span class="pill pill-yellow">Medium</span></td><td><span class="pill pill-yellow">Medium</span></td></tr>
+          <tr><td>airstrike</td><td>Open-port enumeration + basic fingerprinting</td><td><span class="pill pill-red">High</span></td><td><span class="pill pill-red">High</span></td></tr>
+          <tr><td>nuke</td><td>Full audit with ALL features enabled</td><td><span class="pill pill-max">Maximum</span></td><td><span class="pill pill-max">Maximum</span></td></tr>
+          <tr><td>discover</td><td>CIDR walk with scans on every live host</td><td><span class="pill pill-red">High</span></td><td><span class="pill pill-red">High</span></td></tr>
+          <tr><td>web</td><td>Web app scan on ports 80/443 only</td><td><span class="pill pill-yellow">Medium</span></td><td><span class="pill pill-yellow">Medium</span></td></tr>
+          <tr><td>webscan</td><td>Full HTTP + HTTPS via Burp + Arachni</td><td><span class="pill pill-red">High</span></td><td><span class="pill pill-red">High</span></td></tr>
+          <tr><td>vulnscan</td><td>OpenVAS vulnerability assessment</td><td><span class="pill pill-red">High</span></td><td><span class="pill pill-green">Low</span></td></tr>
+          <tr><td>mass*</td><td>Multi-target variants of all above modes</td><td><span class="pill pill-red">High</span></td><td><span class="pill pill-red">High</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- INSTALL -->
+<section id="install">
+  <div class="container">
+    <div class="section-label">// Installation</div>
+    <h2 class="section-title reveal">Deploy in Minutes</h2>
+    <p class="section-lead reveal">Native packages for Debian, RHEL, Arch, and macOS. Or go Docker for universal deployment.</p>
+
+    <div class="reveal">
+      <div class="install-tabs">
+        <button class="tab-btn active" onclick="switchTab(event,'linux')">🐧 Linux</button>
+        <button class="tab-btn" onclick="switchTab(event,'docker')">🐳 Docker</button>
+        <button class="tab-btn" onclick="switchTab(event,'mac')">🍎 macOS</button>
+        <button class="tab-btn" onclick="switchTab(event,'aws')">☁️ AWS</button>
+      </div>
+
+      <div id="tab-linux" class="tab-pane active">
+        <div class="terminal">
+          <div class="terminal-bar"><div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div><span class="terminal-title">bash — omino installer</span></div>
+          <div class="terminal-body">
+            <div><span class="t-comment"># Clone the repository</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">git clone https://github.com/Athexblackhat/OMINO.git</span></div>
+            <div><span class="t-out">Cloning into 'OMINO'...</span></div>
+            <div><span class="t-out">Receiving objects: 100% — done.</span></div>
+            <br/>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">cd OMINO</span></div>
+            <br/>
+            <div><span class="t-comment"># Interactive installer (auto-detects your distro)</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">sudo bash install.sh</span></div>
+            <br/>
+            <div><span class="t-info">[*] Detected: Kali Linux (Debian-based)</span></div>
+            <div><span class="t-info">[*] Installing dependencies...</span></div>
+            <div><span class="t-info">[*] Configuring 90+ tools...</span></div>
+            <div><span class="t-out">[✓] OMINO Black Hat Edition ready.</span></div>
+            <br/>
+            <div><span class="t-comment"># Force install (no prompts)</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">sudo bash install.sh force<span class="t-cursor"></span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-docker" class="tab-pane">
+        <div class="terminal">
+          <div class="terminal-bar"><div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div><span class="terminal-title">docker — kali / blackarch</span></div>
+          <div class="terminal-body">
+            <div><span class="t-comment"># Kali Linux base image</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">sudo docker compose up</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">sudo docker run --privileged -it OMINO-kali-linux /bin/bash</span></div>
+            <br/>
+            <div><span class="t-comment"># BlackArch base image</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">sudo docker compose -f docker-compose-blackarch.yml up</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">sudo docker run --privileged -it OMINO-blackarch /bin/bash<span class="t-cursor"></span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-mac" class="tab-pane">
+        <div class="terminal">
+          <div class="terminal-bar"><div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div><span class="terminal-title">bash — macOS + homebrew</span></div>
+          <div class="terminal-body">
+            <div><span class="t-comment"># Install Homebrew first</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"</span></div>
+            <br/>
+            <div><span class="t-comment"># Clone and install</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">git clone https://github.com/Athexblackhat/OMINO.git && cd OMINO</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">sudo bash install.sh<span class="t-cursor"></span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tab-aws" class="tab-pane">
+        <div class="terminal">
+          <div class="terminal-bar"><div class="terminal-dot dot-red"></div><div class="terminal-dot dot-yellow"></div><div class="terminal-dot dot-green"></div><span class="terminal-title">AWS Marketplace</span></div>
+          <div class="terminal-body">
+            <div><span class="t-info">[1] Visit AWS Marketplace → Search "OMINO"</span></div>
+            <div><span class="t-info">[2] Click "Continue to Subscribe"</span></div>
+            <div><span class="t-info">[3] Configure region and instance type</span></div>
+            <div><span class="t-info">[4] Click "Continue to Launch"</span></div>
+            <div><span class="t-info">[5] SSH to EC2 public IP</span></div>
+            <br/>
+            <div><span class="t-out">[✓] OMINO is preinstalled and ready.</span></div>
+            <div><span class="t-prompt">$ </span><span class="t-cmd">omino --status<span class="t-cursor"></span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:2rem" class="reveal">
+      <div style="margin-bottom:0.5rem;font-family:'Share Tech Mono',monospace;font-size:0.72rem;color:var(--dim);letter-spacing:0.15em;">// QUICK START</div>
+      <div class="cmd-block">
+        <div class="comment"># Basic scan</div>
+        <div>omino -t example.com -m normal</div>
+        <br/>
+        <div class="comment"># Full nuke with project workspace</div>
+        <div>omino -t example.com -m nuke -w myproject</div>
+        <br/>
+        <div class="comment"># Stealth recon with OSINT</div>
+        <div>omino -t example.com -m stealth -o -re</div>
+        <br/>
+        <div class="comment"># Multi-target airstrike from file</div>
+        <div>omino -f targets.txt -m airstrike</div>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:0.78rem;color:var(--dim);">Results stored in <span style="color:var(--red)">/usr/share/omino/loot/&lt;workspace&gt;/</span></div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- INTEGRATIONS -->
+<section id="integrations">
+  <div class="container">
+    <div class="section-label">// Integrations</div>
+    <h2 class="section-title reveal">90+ Tools Orchestrated</h2>
+    <p class="section-lead reveal">OMINO speaks every tool's language natively — from Nessus to Metasploit to OpenAI.</p>
+    <div class="integrations-cats reveal">
+      <div class="int-cat">
+        <div class="int-cat-title">🛡️ Vulnerability Scanners</div>
+        <div class="int-tags">
+          <span class="int-tag">Nessus</span><span class="int-tag">OpenVAS</span><span class="int-tag">GVM 21.x</span><span class="int-tag">Nuclei</span>
+        </div>
+      </div>
+      <div class="int-cat">
+        <div class="int-cat-title">🌐 Web App Testing</div>
+        <div class="int-tags">
+          <span class="int-tag">Burp Suite Pro</span><span class="int-tag">OWASP ZAP</span><span class="int-tag">WPScan</span><span class="int-tag">Arachni</span><span class="int-tag">Nikto</span>
+        </div>
+      </div>
+      <div class="int-cat">
+        <div class="int-cat-title">💥 Exploitation</div>
+        <div class="int-tags">
+          <span class="int-tag">Metasploit</span><span class="int-tag">Hydra</span><span class="int-tag">SQLMap</span><span class="int-tag">John the Ripper</span>
+        </div>
+      </div>
+      <div class="int-cat">
+        <div class="int-cat-title">🔍 Reconnaissance</div>
+        <div class="int-tags">
+          <span class="int-tag">Nmap</span><span class="int-tag">Masscan</span><span class="int-tag">Amass</span><span class="int-tag">Subfinder</span><span class="int-tag">Shodan</span><span class="int-tag">Censys</span>
+        </div>
+      </div>
+      <div class="int-cat">
+        <div class="int-cat-title">🤖 AI / LLM</div>
+        <div class="int-tags">
+          <span class="int-tag">OpenAI</span><span class="int-tag">Claude</span><span class="int-tag">Gemini</span>
+        </div>
+      </div>
+      <div class="int-cat">
+        <div class="int-cat-title">📣 Notifications & DevOps</div>
+        <div class="int-tags">
+          <span class="int-tag">Slack</span><span class="int-tag">GitHub API</span><span class="int-tag">Jira</span><span class="int-tag">Email</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="divider"/>
+
+<!-- TEAM -->
+<section id="team">
+  <div class="container">
+    <div class="section-label">// Team</div>
+    <h2 class="section-title reveal">Built by Operators</h2>
+    <p class="section-lead reveal">Core team and 35+ contributors worldwide.</p>
+    <div class="team-grid reveal">
+      <div class="team-card">
+        <div class="team-avatar">👁</div>
+        <div class="team-name">@xer0dayz</div>
+        <div class="team-role">Creator &amp; Lead Developer</div>
+        <div class="team-handle">OMINOSecurity LLC · GitHub · Twitter</div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">⚙</div>
+        <div class="team-name">D4rth R3v4n</div>
+        <div class="team-role">Multi-Distro Architect</div>
+        <div class="team-handle">@gbiagomba · GitHub</div>
+      </div>
+      <div class="team-card">
+        <div class="team-avatar">🌐</div>
+        <div class="team-name">35+ Contributors</div>
+        <div class="team-role">Community</div>
+        <div class="team-handle">Bug reports · Features · Testing · Docs</div>
+      </div>
+    </div>
+
+    <div class="warning-banner reveal" style="margin-top:3rem">
+      <strong>⚠ AUTHORIZED USE ONLY</strong>
+      <p>OMINO is designed exclusively for authorized security testing. You are responsible for obtaining explicit permission before scanning any system. Unauthorized scanning is illegal and may result in criminal prosecution. The developers assume no liability for misuse.</p>
+    </div>
+  </div>
+</section>
+
+</div><!-- .page -->
+
+<!-- FOOTER -->
+<footer>
+  <span class="footer-symbol">🜛</span>
+  <div class="footer-title">OMINO — The Eye That Sees All</div>
+  <div class="footer-tagline">Built by pentesters. For pentesters. Since 2015.</div>
+  <div class="footer-links">
+    <a href="https://github.com/Athexblackhat/OMINO">GitHub</a>
+    <a href="https://OMINOsecurity.com">Website</a>
+    <a href="https://github.com/Athexblackhat/OMINO/wiki">Wiki</a>
+    <a href="https://github.com/Athexblackhat/OMINO/issues">Issues</a>
+    <a href="https://github.com/Athexblackhat/OMINO/blob/main/LICENSE.md">License</a>
+    <a href="https://github.com/Athexblackhat/OMINO/blob/main/CHANGELOG.md">Changelog</a>
+  </div>
+  <div class="footer-copy">MIT License · © OMINOSecurity LLC · Topics: penetration-testing · offensive-security · red-team · osint · bug-bounty</div>
+</footer>
+
+<script>
+/* ── MATRIX RAIN ── */
+(function(){
+  const canvas = document.getElementById('matrix-canvas');
+  const ctx = canvas.getContext('2d');
+  let w, h, cols, drops;
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%^&*()🜛';
+  function init(){
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+    cols = Math.floor(w / 20);
+    drops = Array(cols).fill(1);
+  }
+  init();
+  window.addEventListener('resize', init);
+  function draw(){
+    ctx.fillStyle = 'rgba(10,10,20,0.05)';
+    ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = '#e94560';
+    ctx.font = '14px "Share Tech Mono"';
+    drops.forEach((y,i)=>{
+      const ch = chars[Math.floor(Math.random()*chars.length)];
+      ctx.fillStyle = Math.random()>0.95 ? '#ffffff' : i%3===0 ? '#e94560' : '#533483';
+      ctx.fillText(ch, i*20, y*20);
+      if(y*20>h && Math.random()>0.975) drops[i]=0;
+      drops[i]++;
+    });
+  }
+  setInterval(draw, 50);
+})();
+
+/* ── TAB SWITCHER ── */
+function switchTab(e, id){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  e.target.classList.add('active');
+  document.getElementById('tab-'+id).classList.add('active');
+}
+
+/* ── SCROLL REVEAL ── */
+(function(){
+  const els = document.querySelectorAll('.reveal');
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); io.unobserve(e.target); } });
+  }, { threshold: 0.1 });
+  els.forEach(el=>io.observe(el));
+})();
+
+/* ── COUNTER ANIMATION ── */
+(function(){
+  const nums = document.querySelectorAll('.stat-num');
+  const io = new IntersectionObserver(entries=>{
+    entries.forEach(e=>{
+      if(!e.isIntersecting) return;
+      const el = e.target;
+      const text = el.textContent;
+      const num = parseInt(text.replace(/\D/g,''));
+      const suffix = text.replace(/[\d]/g,'');
+      let start = 0;
+      const step = Math.ceil(num/60);
+      const timer = setInterval(()=>{
+        start += step;
+        if(start>=num){ el.textContent=num+suffix; clearInterval(timer); }
+        else el.textContent=start+suffix;
+      }, 20);
+      io.unobserve(el);
+    });
+  }, { threshold: 0.5 });
+  nums.forEach(n=>io.observe(n));
+})();
+</script>
+</body>
+</html>

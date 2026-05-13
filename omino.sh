@@ -1,0 +1,803 @@
+#!/bin/bash
+# ╔═╗╔╦╗╦╔╗╔╔═╗  ╔═╗╔═╗
+# ║ ║║║║║║║║║ ║  ║  ║╣  
+# ╚═╝╩ ╩╩╝╚╝╚═╝  ╚═╝╚═╝
+# + -- --=[ OMINO Black Hat Edition
+# + -- --=[ The Eye That Sees All
+# + -- --=[ Advanced Security Reconnaissance Suite
+#
+
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root"
+   exit 1
+fi
+
+OKBLUE='\033[94m'
+OKRED='\033[91m'
+OKGREEN='\033[92m'
+OKORANGE='\033[93m'
+OKCYAN='\033[96m'
+OKMAGENTA='\033[95m'
+OKWHITE='\033[97m'
+OKYELLOW='\033[33m'
+RESET='\e[0m'
+BOLD='\033[1m'
+DIM='\033[2m'
+BLINK='\033[5m'
+UNDERLINE='\033[4m'
+
+SPINNER_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
+
+hide_cursor() { printf "\e[?25l"; }
+show_cursor() { printf "\e[?25h"; }
+clear_line() { printf "\e[2K\r"; }
+
+# Spinning animation for long operations
+spinner() {
+    local message="$1"
+    local pid=$2
+    local frame=0
+    local color=${3:-$OKCYAN}
+    
+    while kill -0 $pid 2>/dev/null; do
+        local spin_char=${SPINNER_FRAMES[$frame]}
+        printf "\r\033[K  ${color}${spin_char}${RESET} ${message}"
+        frame=$(( (frame + 1) % ${#SPINNER_FRAMES[@]} ))
+        sleep 0.1
+    done
+    printf "\r\033[K  ${OKGREEN}✓${RESET} ${message}\n"
+}
+
+type_text() {
+    local text="$1"
+    local delay=${2:-0.02}
+    local color=${3:-$OKWHITE}
+    
+    printf "${color}"
+    for ((i=0; i<${#text}; i++)); do
+        printf "${text:$i:1}"
+        sleep $delay
+    done
+    printf "${RESET}\n"
+}
+
+progress_bar() {
+    local current=$1
+    local total=$2
+    local message=${3:-"Processing"}
+    local bar_width=30
+    local filled=$(( current * bar_width / total ))
+    local empty=$(( bar_width - filled ))
+    local percentage=$(( current * 100 / total ))
+    
+    printf "\r  ${OKCYAN}[${RESET}"
+    for ((i=0; i<filled; i++)); do
+        if [[ $i -lt $((bar_width / 3)) ]]; then
+            printf "${OKGREEN}█${RESET}"
+        elif [[ $i -lt $((bar_width * 2 / 3)) ]]; then
+            printf "${OKCYAN}█${RESET}"
+        else
+            printf "${OKBLUE}█${RESET}"
+        fi
+    done
+    for ((i=0; i<empty; i++)); do
+        printf "${DIM}░${RESET}"
+    done
+    printf "${OKCYAN}]${RESET} ${percentage}%% ${message}"
+}
+
+VER="1.0"
+INSTALL_DIR="/usr/share/omino"
+LOOT_DIR="$INSTALL_DIR/loot/$TARGET"
+OMINO_PRO=$INSTALL_DIR/pro.sh
+
+function logo {
+  clear
+  echo ""
+  echo ""
+  echo -e "${BOLD}${OKRED}    ██████╗ ███╗   ███╗██╗███╗   ██╗ ██████╗ ${RESET}"
+  echo -e "${BOLD}${OKRED}   ██╔═══██╗████╗ ████║██║████╗  ██║██╔═══██╗${RESET}"
+  echo -e "${BOLD}${OKRED}   ██║   ██║██╔████╔██║██║██╔██╗ ██║██║   ██║${RESET}"
+  echo -e "${BOLD}${OKRED}   ██║   ██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║${RESET}"
+  echo -e "${BOLD}${OKRED}   ╚██████╔╝██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝${RESET}"
+  echo -e "${BOLD}${OKRED}    ╚═════╝ ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ${RESET}"
+  echo ""
+  echo -e "${OKCYAN}${RESET} ${BOLD}${OKORANGE}ADVANCED SECURITY RECONNAISSANCE SUITE${RESET}${OKCYAN}${RESET}"
+  echo ""
+  echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}OMINO ${OKMAGENTA}⚡ ${OKCYAN}- The Eye That Sees All${RESET}"
+  echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}BLACK HAT EDITION v${VER} ${OKMAGENTA}⚡ ${OKRED}- For Authorized Use Only${RESET}"
+  echo ""
+  echo -e "${OKORANGE} + -- --=[ OMINO v${VER} - Reborn from the shadows${RESET}"
+  echo ""
+}
+
+# INIT POSTGRESQL
+service postgresql start 2> /dev/null
+
+# LOAD DEFAULT OMINO CONFIGURATION FILE
+dos2unix $INSTALL_DIR/omino.conf 2> /dev/null > /dev/null
+source $INSTALL_DIR/omino.conf
+echo -e "$OKBLUE[*]$RESET Loaded configuration file from $INSTALL_DIR/omino.conf $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+
+if [[ -f /root/.omino.conf ]]; then
+  # LOAD USER OMINO CONFIGURATION FILE
+  dos2unix /root/.omino.conf 2> /dev/null > /dev/null
+  source /root/.omino.conf
+  echo -e "$OKBLUE[*]$RESET Loaded configuration file from /root/.omino.conf $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+
+  if [[ -f /root/.omino_api_keys.conf ]]; then
+    # LOAD USER API KEYS (PERSISTENT CONFIG)
+    dos2unix /root/.omino_api_keys.conf 2> /dev/null > /dev/null
+    source /root/.omino_api_keys.conf
+    echo -e "$OKBLUE[*]$RESET Loaded API keys from /root/.omino_api_keys.conf $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+  fi
+
+else
+  # IF NO USER CONFIG PRESENT, CREATE IT FROM THE DEFAULT TEMPLATE
+  cp $INSTALL_DIR/omino.conf /root/.omino.conf 2> /dev/null
+  dos2unix /root/.omino.conf 2> /dev/null > /dev/null
+  source /root/.omino.conf
+  echo -e "$OKBLUE[*]$RESET Loaded configuration file from /root/.omino.conf $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+fi
+
+DISTRO=$(cat /etc/*-release | grep DISTRIB_ID= | cut -d'=' -f2)
+
+function help {
+  logo
+  local star
+  printf -v star "$OKBLUE[*]$RESET"
+  
+  echo ""
+
+  echo -e "${OKCYAN}${BOLD}${OKORANGE}COMMAND REFERENCE${RESET}${OKCYAN}${RESET}"
+
+  echo ""
+  
+  cat <<EOHELP
+
+$star ${BOLD}NORMAL MODE${RESET}
+ omino -t <TARGET>
+
+$star ${BOLD}SPECIFY CUSTOM CONFIG FILE${RESET}
+ omino -c /full/path/to/omino.conf -t <TARGET> -m <MODE> -w <WORKSPACE>
+
+$star ${BOLD}NORMAL MODE + OSINT + RECON${RESET}
+ omino -t <TARGET> -o -re
+
+$star ${BOLD}STEALTH MODE + OSINT + RECON${RESET}
+ omino -t <TARGET> -m stealth -o -re
+
+$star ${BOLD}DISCOVER MODE${RESET}
+ omino -t <CIDR> -m discover -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}SCAN ONLY SPECIFIC PORT${RESET}
+ omino -t <TARGET> -m port -p <portnum>
+
+$star ${BOLD}FULLPORTONLY SCAN MODE${RESET}
+ omino -t <TARGET> -fp
+
+$star ${BOLD}WEB MODE - PORT 80 + 443 ONLY!${RESET}
+ omino -t <TARGET> -m web
+
+$star ${BOLD}HTTP WEB PORT MODE${RESET}
+ omino -t <TARGET> -m webporthttp -p <port>
+
+$star ${BOLD}HTTPS WEB PORT MODE${RESET}
+ omino -t <TARGET> -m webporthttps -p <port>
+
+$star ${BOLD}HTTP WEBSCAN MODE${RESET}
+ omino -t <TARGET> -m webscan
+
+$star ${BOLD}ENABLE BRUTEFORCE${RESET}
+ omino -t <TARGET> -b
+
+$star ${BOLD}AIRSTRIKE MODE${RESET}
+ omino -f targets.txt -m airstrike
+
+$star ${BOLD}NUKE MODE WITH TARGET LIST, BRUTEFORCE ENABLED, FULLPORTSCAN ENABLED, OSINT ENABLED, RECON ENABLED, WORKSPACE & LOOT ENABLED${RESET}
+ omino -f targets.txt -m nuke -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}MASS PORT SCAN MODE${RESET}
+ omino -f targets.txt -m massportscan -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}MASS WEB SCAN MODE${RESET}
+ omino -f targets.txt -m massweb -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}MASS WEBSCAN SCAN MODE${RESET}
+ omino -f targets.txt -m masswebscan -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}MASS VULN SCAN MODE${RESET}
+ omino -f targets.txt -m massvulnscan -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}PORT SCAN MODE${RESET}
+ omino -t <TARGET> -m port -p <PORT_NUM>
+
+$star ${BOLD}LIST WORKSPACES${RESET}
+ omino --list
+
+$star ${BOLD}DELETE WORKSPACE${RESET}
+ omino -w <WORKSPACE_ALIAS> -d
+
+$star ${BOLD}DELETE HOST FROM WORKSPACE${RESET}
+ omino -w <WORKSPACE_ALIAS> -t <TARGET> -dh
+
+$star ${BOLD}DELETE TASKS FROM WORKSPACE${RESET}
+ omino -w <WORKSPACE_ALIAS> -t <TARGET> -dt
+
+$star ${BOLD}GET OMINO SCAN STATUS${RESET}
+ omino --status
+
+$star ${BOLD}LOOT REIMPORT FUNCTION${RESET}
+ omino -w <WORKSPACE_ALIAS> --reimport
+
+$star ${BOLD}LOOT REIMPORTALL FUNCTION${RESET}
+ omino -w <WORKSPACE_ALIAS> --reimportall
+
+$star ${BOLD}LOOT RELOAD FUNCTION${RESET}
+ omino -w <WORKSPACE_ALIAS> --reload
+
+$star ${BOLD}LOOT EXPORT FUNCTION${RESET}
+ omino -w <WORKSPACE_ALIAS> --export
+
+$star ${BOLD}SCHEDULED SCANS${RESET}
+ omino -w <WORKSPACE_ALIAS> -s daily|weekly|monthly
+
+$star ${BOLD}USE A CUSTOM CONFIG${RESET}
+ omino -c /path/to/omino.conf -t <TARGET> -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}UPDATE OMINO${RESET}
+ omino -u|--update
+
+EOHELP
+
+  echo ""
+  echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}The shadows protect, but OMINO reveals...${RESET} ${OKMAGENTA}⚡${RESET}"
+  echo ""
+  exit
+}
+
+function omino_status {
+  logo
+  echo -e "${OKCYAN}${BOLD}${OKORANGE}ACTIVE OPERATIONS${RESET}${OKCYAN}${RESET}"
+  echo ""
+  watch -n 1 -c 'ps -ef | egrep "omino|slurp|hydra|ruby|python|dirsearch|amass|nmap|metasploit|curl|wget|nikto" && echo "NETWORK CONNECTIONS..." && netstat -an | egrep "TIME_WAIT|EST"'
+}
+
+# CHECK FOR UPDATES
+function check_update {
+  if [[ "$ENABLE_AUTO_UPDATES" == "1" ]] && [[ "$ONLINE" == "1" ]]; then
+    LATEST_VER=$(curl --connect-timeout 5 -s https://api.github.com/repos/Athexblackhat/OMINO/tags | grep -Po '"name":.*?[^\\]",'| head -1 | cut -c11-13)
+    if [[ "$LATEST_VER" != "$VER" ]]; then
+      echo -e "$OKBLUE[$RESET${OKRED}⚡${RESET}$OKBLUE] OMINO v$LATEST_VER is available to download... To update, type$OKRED \"omino -u\" $RESET"
+    fi
+  fi
+  touch /tmp/update-check.txt 2> /dev/null
+}
+
+# APPLY UPDATES
+function update {
+  logo
+  echo -e "$OKBLUE[*]$RESET ${OKCYAN}Consulting the oracle for updates...${RESET}$OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+  if [[ "$ONLINE" == "0" ]]; then
+    echo "You will need to download the latest release manually at https://github.com/Athexblackhat/OMINO/"
+  else
+    LATEST_VER=$(curl --connect-timeout 5 -s https://api.github.com/repos/Athexblackhat/OMINO/tags | grep -Po '"name":.*?[^\\]",'| head -1 | cut -c11-13)
+    if [[ "$LATEST_VER" != "$VER" ]]; then
+      echo -e "$OKBLUE[$RESET${OKRED}⚡${RESET}$OKBLUE] OMINO $LATEST_VER is available... Do you want to update? (y or n)$RESET"
+      read ans
+      if [[ "$ans" = "y" ]]; then
+        rm -Rf /tmp/OMINO/ 2>/dev/null
+        git clone https://github.com/Athexblackhat/OMINO /tmp/OMINO/
+        cd /tmp/OMINO/
+        chmod +rx install.sh
+        bash install.sh
+        rm -Rf /tmp/OMINO/ 2>/dev/null
+        exit
+      fi
+    fi
+  fi
+}
+
+if [[ "$UPDATE" = "1" ]]; then
+  update
+  exit
+fi
+
+function check_online {
+  echo -e "${OKCYAN}${BOLD}${OKORANGE}ESTABLISHING CONNECTION...${RESET}${OKCYAN}${RESET}"
+  echo ""
+  
+  ONLINE=$(curl --connect-timeout 3 --insecure -s "https://github.com/Athexblackhat?$VER&mid=$(cat /etc/machine-id)" 2> /dev/null)
+  if [[ -z "$ONLINE" ]]; then
+    ONLINE=$(curl --connect-timeout 3 -s https://api.github.com/repos/Athexblackhat/OMINO/tags | grep -Po '"name":.*?[^\\]",'| head -1 | cut -c11-13)
+    if [[ -z "$ONLINE" ]]; then
+      ONLINE="0"
+      echo -e "$OKBLUE[*]$RESET Checking for active internet connection $OKBLUE[$RESET${OKRED}FAIL${RESET}$OKBLUE]"
+      echo -e "$OKBLUE[$RESET${OKRED}⚡${RESET}$OKBLUE]$RESET OMINO is running in offline mode.$RESET"
+    else
+      ONLINE="1"
+      echo -e "$OKBLUE[*]$RESET Checking for active internet connection $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    fi
+  else
+    ONLINE="1"
+    echo -e "$OKBLUE[*]$RESET Checking for active internet connection $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+  fi
+}
+
+# COMMAND LINE SWITCHES
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -h|--help)
+    help
+    shift # past argument
+    ;;
+    -c|--config)
+    CONFIG="$2"
+    echo -e "$OKBLUE[*]$RESET Creating backup of existing config to /root/.omino.conf.bak...$OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    cp -f /root/.omino.conf /root/.omino.conf.bak
+    echo -e "$OKBLUE[*]$RESET Copying $CONFIG to /root/.omino.conf...$OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    cp -f $CONFIG /root/.omino.conf 2> /dev/null
+    dos2unix /root/.omino.conf 2> /dev/null > /dev/null
+    source /root/.omino.conf
+    sleep 1
+    shift
+    shift
+    ;;
+    -t)
+    TARGET="$2"
+    shift # past argument
+    shift # past argument
+    ;;
+    -b)
+    AUTO_BRUTE="1"
+    shift # past argument
+    ;;
+    -fp|--fullportscan)
+    FULLNMAPSCAN="1"
+    shift # past argument
+    ;;
+    -o|--osint)
+    OSINT="1"
+    shift # past argument
+    ;;
+    -re|--recon)
+    RECON="1"
+    shift # past argument
+    ;;
+    -m)
+    MODE="$2"
+    shift # past argument
+    shift # past argument
+    ;;
+    -p)
+    PORT="$2"
+    shift # past argument
+    shift # past argument
+    ;;
+    -f|--file)
+    FILE="$(realpath $2)"
+    shift # past argument
+    shift # past argument
+    ;;
+    -ri|--reimport)
+    REIMPORT="1"
+    shift # past argument
+    ;;
+    -ria|--reimportall)
+    REIMPORT_ALL="1"
+    shift # past argument
+    ;;
+    -rl|--reload)
+    RELOAD="1"
+    shift # past argument
+    ;;
+    -n|--noreport)
+    REPORT="0"
+    shift # past argument
+    ;;
+    -nl|--noloot)
+    LOOT="0"
+    NOLOOT="1"
+    shift # past argument
+    ;;
+    -w)
+    WORKSPACE="$(echo $2 | tr / -)"
+    WORKSPACE_DIR="$INSTALL_DIR/loot/workspace/$WORKSPACE"
+    shift # past argument
+    shift # past argument
+    ;;
+    -s|--schedule)
+    if [[ -z "$WORKSPACE" ]]; then
+      echo "You need to set a workspace via the -w switch to schedule a scan task."
+      exit
+    fi
+    SCHEDULE_ARG="$2"
+    if [[ "$SCHEDULE_ARG" = "daily" ]] || [[ "$SCHEDULE_ARG" = "weekly" ]] || [[ "$SCHEDULE_ARG" = "monthly" ]]; then
+      SCHEDULE_TASK="$WORKSPACE_DIR/scans/scheduled/$SCHEDULE_ARG.sh"
+      vim $SCHEDULE_TASK
+      cat $WORKSPACE_DIR/scans/scheduled/*.sh 2> /dev/null
+      exit
+    else
+      echo "You need to specify either daily, weekly or monthly for the scheduled scan argument."
+      exit
+    fi
+    shift # past argument
+    shift # past argument
+    ;;
+    -d|--delete)
+    logo
+    echo -e "${OKRED}  ⚠️  WARNING: This will permanently delete the workspace!${RESET}"
+    echo "Are you sure you want to remove the following workspace? (Hit Ctrl+C to exit): /usr/share/omino/loot/workspace/$WORKSPACE/"
+    read ANS
+    rm -Rf /usr/share/omino/loot/workspace/$WORKSPACE/
+    echo "Workspace /usr/share/omino/loot/workspace/$WORKSPACE/ was removed."
+    omino -w default --reimport
+    exit
+    shift # past argument
+    ;;
+    -dh|--delete-host)
+    echo "Removing $TARGET from $WORKSPACE"
+    sed -i "/$TARGET/d" $WORKSPACE_DIR/domains/* $WORKSPACE_DIR/reports/host-table-report.csv
+    egrep -R "$TARGET" $WORKSPACE_DIR/domains/* $WORKSPACE_DIR/reports/host-table-report.csv
+    rm -f $WORKSPACE_DIR/screenshots/$TARGET*.jpg 2> /dev/null
+    rm -f $WORKSPACE_DIR/nmap/dns-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/nmap/ports-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/web/title-*-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/web/headers-*-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/vulnerabilities/sc0pe-$TARGET-*.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/vulnerabilities/vulnerability-report-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/vulnerabilities/vulnerability-risk-$TARGET.txt 2> /dev/null
+    exit
+    shift
+    ;;
+    -dt|--delete-task)
+    echo "Removing all running $TARGET tasks from $WORKSPACE"
+    rm -vf $WORKSPACE_DIR/scans/running_$TARGET_*.txt
+    ls -lh $LOOT_DIR/scans/running_*.txt 2> /dev/null | wc -l 2> /dev/null > $WORKSPACE_DIR/scans/tasks-running.txt 2> /dev/null
+    ps -ef | egrep "$TARGET|omino"
+    ps -ef | egrep "omino" | awk '{print $2}' | xargs -i sudo kill -9 {} 
+    exit
+    shift # past argument
+    ;;
+    --list)
+    logo
+    echo -e "${OKCYAN}${BOLD}${OKORANGE}AVAILABLE WORKSPACES${RESET}${OKCYAN}${RESET}"
+    echo ""
+    ls -l $INSTALL_DIR/loot/workspace/
+    echo ""
+    echo "cd /usr/share/omino/loot/workspace/"
+    WORKSPACE_REPORT=$LOOT_DIR/omino-report.html
+    if [[ -f $WORKSPACE_REPORT ]]; then
+      echo -e "$OKORANGE + -- --=[ Loading OMINO Professional...$RESET"
+      $BROWSER $INSTALL_DIR/loot/workspace/omino-report.html 2> /dev/null > /dev/null &
+    else
+      echo -e "$OKORANGE + -- --=[ Loading workspaces...$RESET"
+      $BROWSER $INSTALL_DIR/loot/workspace/ 2> /dev/null > /dev/null &
+    fi
+    exit
+    shift
+    ;;
+    --export)
+    if [[ -z "$WORKSPACE" ]]; then
+      echo "You need to set a workspace via the -w switch to export a workspace."
+      exit
+    fi
+    echo "Archiving $WORKSPACE to $INSTALL_DIR/loot/$WORKSPACE.tar"
+    cd $INSTALL_DIR/loot/workspace/ && tar -cvf ../$WORKSPACE.tar $WORKSPACE 
+    cp -Rf $WORKSPACE ${WORKSPACE}_`date +"%Y-%m-%d"`
+    echo "Done!"
+    exit
+    shift
+    ;;
+    -s|--status)
+    omino_status
+    exit
+    shift
+    ;;
+    -u|--update)
+    UPDATE="1"
+    update
+    exit
+    shift # past argument
+    ;;
+    *)    # unknown option
+    POSITIONAL+=("$1")
+    echo "Unknown scan option $POSITIONAL...refer to the help menu for usage details."
+    exit
+    shift # past argument
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+if [[ ! -z "$TARGET" ]] && [[ -z "$WORKSPACE" ]]; then
+  WORKSPACE=$(echo "$TARGET")
+fi
+
+if [[ -z "$TARGET" ]] && [[ -z "$WORKSPACE" ]]; then
+  logo
+  echo -e "${OKRED}  ⚠️  You need to specify a target or workspace to use.${RESET}"
+  echo -e "${OKCYAN}  Type ${BOLD}omino --help${RESET}${OKCYAN} for command usage.${RESET}"
+  exit
+fi
+
+cd $INSTALL_DIR
+
+function init {
+  if [[ ! -z $WORKSPACE_DIR ]]; then
+    LOOT_DIR=$WORKSPACE_DIR
+  fi
+  
+
+  echo -e "${OKCYAN}${BOLD}${OKORANGE}INITIALIZING OPERATION...${RESET}${OKCYAN}${RESET}"
+  echo ""
+  
+  echo -e "$OKBLUE[*]$RESET Saving loot to $LOOT_DIR $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+  mkdir -p $LOOT_DIR 2> /dev/nul
+  mkdir $LOOT_DIR/domains 2> /dev/null
+  mkdir $LOOT_DIR/ips 2> /dev/null
+  mkdir $LOOT_DIR/screenshots 2> /dev/null
+  mkdir $LOOT_DIR/nmap 2> /dev/null
+  mkdir $LOOT_DIR/reports 2> /dev/null
+  mkdir $LOOT_DIR/output 2> /dev/null
+  mkdir $LOOT_DIR/osint 2> /dev/null
+  mkdir $LOOT_DIR/credentials 2> /dev/null
+  mkdir $LOOT_DIR/web 2> /dev/null
+  mkdir $LOOT_DIR/vulnerabilities 2> /dev/null
+  mkdir $LOOT_DIR/notes 2> /dev/null
+  mkdir -p $LOOT_DIR/scans/scheduled/ 2> /dev/null
+  touch $LOOT_DIR/scans/scheduled/daily.sh 2> /dev/null
+  touch $LOOT_DIR/scans/scheduled/weekly.sh 2> /dev/null
+  touch $LOOT_DIR/scans/scheduled/monthly.sh 2> /dev/null
+  touch $LOOT_DIR/scans/notifications.txt 2> /dev/null
+  touch $LOOT_DIR/scans/notifications_new.txt 2> /dev/null
+  chmod 777 -Rf $INSTALL_DIR 2> /dev/null
+  chown root $INSTALL_DIR/omino 2> /dev/null
+  chmod 4777 $INSTALL_DIR/omino 2> /dev/null
+  TARGET="$(echo $TARGET | sed 's/https:\/\///g' | sed 's/http:\/\///g')"
+  rm -f /tmp/out_of_scope 2> /dev/null
+  for key in "${OUT_OF_SCOPE[@]}"; do echo $TARGET | egrep ${key} >> /tmp/out_of_scope 2> /dev/null; done;
+  OUT_OF_SCOPE_NUM=$(wc -l /tmp/out_of_scope 2> /dev/null | awk '{print $1}' 2> /dev/null)
+  if [[ $OUT_OF_SCOPE_NUM > 0 ]]; then
+    echo -e "$OKBLUE[$RESET${OKRED}⚡${RESET}$OKBLUE] $TARGET is out of scope. Skipping! $RESET"
+    exit
+  else
+    echo -e "$OKBLUE[*]$RESET ${BOLD}Scanning $TARGET${RESET} $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}The eye opens... ${RESET}${OKMAGENTA}⚡${RESET}"
+    echo "$TARGET" >> $LOOT_DIR/domains/targets.txt 2> /dev/null
+  fi
+  service postgresql start 2> /dev/null > /dev/null
+  msfdb start 2> /dev/null > /dev/null
+  chown root /run/user/1000/gdm/Xauthority 2> /dev/null
+  LAST_USER=$(last 2> /dev/null | head -n 1 | awk '{print $1}')
+  sudo cp -a /home/$LAST_USER/.Xauthority /root/.Xauthority 2> /dev/null
+  sudo cp -a /root/.Xauthority /root/.Xauthority.bak 2> /dev/null
+  sudo cp -a /home/$USER/.Xauthority /root/.Xauthority 2> /dev/null
+  sudo cp -a /home/kali/.Xauthority /root/.Xauthority 2> /dev/null
+  sudo chown root: /root/.Xauthority 2> /dev/null
+  XAUTHORITY=/root/.Xauthority
+  UPDATED_TARGETS=$LOOT_DIR/scans/updated.txt
+  if [[ "$AUTO_BRUTE" == "1" ]]; then
+    echo "$TARGET AUTO_BRUTE `date +"%Y-%m-%d %H:%M"`" 2> /dev/null >> $LOOT_DIR/scans/tasks.txt
+    touch $LOOT_DIR/scans/$TARGET-AUTO_BRUTE.txt 2> /dev/null
+  fi
+  if [[ "$FULLNMAPSCAN" == "1" ]]; then
+    echo "$TARGET fullnmapscan `date +"%Y-%m-%d %H:%M"`" 2> /dev/null >> $LOOT_DIR/scans/tasks.txt
+    touch $LOOT_DIR/scans/$TARGET-fullnmapscan.txt 2> /dev/null
+  fi
+  if [[ "$OSINT" == "1" ]]; then
+    echo "$TARGET osint `date +"%Y-%m-%d %H:%M"`" 2> /dev/null >> $LOOT_DIR/scans/tasks.txt
+    touch $LOOT_DIR/scans/$TARGET-osint.txt 2> /dev/null
+  fi
+  if [[ "$RECON" == "1" ]]; then
+    echo "$TARGET recon `date +"%Y-%m-%d %H:%M"`" 2> /dev/null >> $LOOT_DIR/scans/tasks.txt
+    touch $LOOT_DIR/scans/$TARGET-recon.txt 2> /dev/null
+  fi
+}
+
+function loot {
+  if [[ ! $LOOT == "0" ]]; then
+    echo ""
+    echo -e "${BOLD}${OKRED}    ██████╗ ███╗   ███╗██╗███╗   ██╗ ██████╗ ${RESET}"
+    echo -e "${BOLD}${OKRED}   ██╔═══██╗████╗ ████║██║████╗  ██║██╔═══██╗${RESET}"
+    echo -e "${BOLD}${OKRED}   ██║   ██║██╔████╔██║██║██╔██╗ ██║██║   ██║${RESET}"
+    echo -e "${BOLD}${OKRED}   ██║   ██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║${RESET}"
+    echo -e "${BOLD}${OKRED}   ╚██████╔╝██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝${RESET}"
+    echo -e "${BOLD}${OKRED}    ╚═════╝ ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ${RESET}"
+    echo ""
+    echo -e "${OKCYAN}${RESET}${BOLD}${OKORANGE}GATHERING INTELLIGENCE...${RESET} ${OKCYAN}${RESET}"
+    echo ""
+    
+    if [[ ! -z $WORKSPACE_DIR ]]; then
+      LOOT_DIR=$WORKSPACE_DIR
+    fi
+    rm -f $INSTALL_DIR/stash.sqlite 2> /dev/null
+    rm -f $INSTALL_DIR/hydra.restore 2> /dev/null
+    rm -f /tmp/update-check.txt 2> /dev/null
+    ls -lh $LOOT_DIR/scans/running_*.txt 2> /dev/null | wc -l 2> /dev/null > $LOOT_DIR/scans/tasks-running.txt 2> /dev/null
+    echo -e "$OKBLUE[*]$RESET Opening loot directory $LOOT_DIR $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    cd $LOOT_DIR
+    if [[ "$METASPLOIT_IMPORT" == "1" ]]; then
+      echo -e "$OKORANGE + -- --=[ Starting Metasploit service...$RESET"
+      /etc/init.d/metasploit start 2> /dev/null > /dev/null
+      msfdb start
+      echo -e "$OKORANGE + -- --=[ Importing NMap XML files into Metasploit...$RESET"
+      msfconsole -x "workspace -a $WORKSPACE; workspace $WORKSPACE; db_import $LOOT_DIR/nmap/nmap*.xml; hosts; services; exit;" | tee $LOOT_DIR/notes/msf-$WORKSPACE.txt
+    fi
+    echo -e "$OKORANGE + -- --=[ Generating reports...$RESET"
+    cd $LOOT_DIR/output 2> /dev/null
+    echo -en "$OKGREEN[$OKBLUE"
+    for a in `ls omino-*.txt 2>/dev/null`;
+    do
+      echo "$a" 2> /dev/null | aha 2> /dev/null > $LOOT_DIR/reports/$a.html 2> /dev/null
+      cat "$a" 2> /dev/null | aha 2> /dev/null >> $LOOT_DIR/reports/$a.html 2> /dev/null
+      echo -n '|'
+    done
+    echo -en "$OKGREEN]$RESET"
+    echo ""
+    cd ..
+    chmod 777 -Rf $LOOT_DIR
+    echo -e "$OKORANGE + -- --=[ Sorting all files...$RESET"
+    cat $LOOT_DIR/scans/notifications_new.txt 2> /dev/null >> $LOOT_DIR/scans/notifications.txt 2> /dev/null
+    sort -u $LOOT_DIR/domains/*-full.txt 2> /dev/null > $LOOT_DIR/domains/domains-all-presorted.txt 2> /dev/null
+    sed -E "s/^\.//g" $LOOT_DIR/domains/domains-all-presorted.txt 2> /dev/null | sed -E "s/^\*\.//g" |  tr '[:upper:]' '[:lower:]' | sort -u > $LOOT_DIR/domains/domains-all-presorted2.txt 2> /dev/null
+    sort -u $LOOT_DIR/domains/targets.txt 2> /dev/null > $LOOT_DIR/domains/targets-all-presorted.txt 2> /dev/null
+    sed -E "s/^\.//g" $LOOT_DIR/domains/targets-all-presorted.txt 2> /dev/null | sed -E "s/^\*\.//g" |  tr '[:upper:]' '[:lower:]' | sort -u > $LOOT_DIR/domains/targets-all-sorted.txt 2> /dev/null
+    sort -u $LOOT_DIR/ips/ips-all-unsorted.txt 2> /dev/null > $LOOT_DIR/ips/ips-all-sorted.txt 2> /dev/null
+    sed -i -E 's/address//g' $LOOT_DIR/ips/ips-all-sorted.txt 2> /dev/null
+    sort -u $LOOT_DIR/domains/domains-all-presorted2.txt $LOOT_DIR/domains/targets-all-sorted.txt 2> /dev/null > $LOOT_DIR/domains/domains-all-sorted.txt 2> /dev/null
+    diff $LOOT_DIR/domains/targets-all-sorted.txt $LOOT_DIR/domains/domains-all-sorted.txt 2> /dev/null | grep \> | awk '{print $2}' > $LOOT_DIR/domains/targets-all-unscanned.txt
+    rm -f $LOOT_DIR/domains/targets-all-presorted.txt $LOOT_DIR/domains/targets-all-presorted2.txt 2> /dev/null
+    rm -f $LOOT_DIR/domains/domains-all-presorted.txt $LOOT_DIR/domains/domains-all-presorted2.txt 2> /dev/null
+    sort -u $LOOT_DIR/nmap/openports-unsorted.txt 2> /dev/null > $LOOT_DIR/nmap/openports-sorted.txt 2> /dev/null
+    sort -u $LOOT_DIR/nmap/livehosts-unsorted.txt 2> /dev/null > $LOOT_DIR/nmap/livehosts-sorted.txt 2> /dev/null
+    find $LOOT_DIR/web/ -type f -size -1c -exec rm -f {} \;
+    cd $LOOT_DIR/web/ && rm -f webhosts-all-sorted-* 2> /dev/null
+    cd $LOOT_DIR/domains/ && rm -f domains-all-sorted-* 2> /dev/null
+    cd $LOOT_DIR/nmap/ && rm -f openports-all-sorted-* 2> /dev/null
+    cd $LOOT_DIR/nmap/ && rm -f livehosts-all-sorted-* 2> /dev/null
+    cd $LOOT_DIR/web/ 2> /dev/null
+    egrep -Hi 'HTTP/1.' headers-* 2> /dev/null | cut -d':' -f1 | sed "s/headers\-http\(\|s\)\-//g" | sed "s/\.txt//g" | cut -d \- -f1 | sort -u 2> /dev/null > $LOOT_DIR/web/webhosts-sorted.txt 2> /dev/null
+    split -d -l $MAX_HOSTS -e $LOOT_DIR/web/webhosts-sorted.txt webhosts-all-sorted- 2> /dev/null
+    cd $LOOT_DIR/domains/ 2> /dev/null
+    split -d -l $MAX_HOSTS -e  $LOOT_DIR/domains/domains-all-sorted.txt domains-all-sorted- 2> /dev/null
+    cd $LOOT_DIR/nmap/ 2> /dev/null
+    split -d -l $MAX_HOSTS -e $LOOT_DIR/nmap/openports-sorted.txt openports-all-sorted- 2> /dev/null
+    split -d -l $MAX_HOSTS -e $LOOT_DIR/nmap/livehosts-sorted.txt livehosts-all-sorted- 2> /dev/null
+    echo -e "$OKORANGE + -- --=[ Removing blank screenshots and files...$RESET"
+    chmod 777 -Rf $LOOT_DIR 2> /dev/null
+    cd $LOOT_DIR/screenshots/
+    find $LOOT_DIR/screenshots/ -type f -size -9000c -exec rm -f {} \;
+    find $LOOT_DIR/nmap/ -type f -size -1c -exec rm -f {} \;
+    find $LOOT_DIR/ips/ -type f -size -1c -exec rm -f {} \;
+    find $LOOT_DIR/osint/ -type f -size -1c -exec rm -f {} \;
+    find $LOOT_DIR/vulnerabilities/ -type f -size -1c -exec rm -f {} \;
+    cd $LOOT_DIR
+    if [[ -f $OMINO_PRO ]]; then
+      wc -l $LOOT_DIR/scans/notifications.txt 2> /dev/null | awk '{print $1}' > $LOOT_DIR/scans/notifications_total.txt 2> /dev/null
+      wc -l $LOOT_DIR/scans/notifications_new.txt 2> /dev/null | awk '{print $1}' > $LOOT_DIR/scans/notifications_new_total.txt 2> /dev/null
+      cat $LOOT_DIR/scans/tasks-running.txt 2> /dev/null > $LOOT_DIR/scans/tasks-running_total.txt 2> /dev/null
+      wc -l $LOOT_DIR/scans/tasks.txt 2> /dev/null | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/tasks_total.txt 2> /dev/null 
+      wc -l $LOOT_DIR/scans/scheduled/*.sh 2> /dev/null | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/scheduled_tasks_total.txt 2> /dev/null 
+      grep "Host\ status" $LOOT_DIR/scans/notifications.txt 2> /dev/null | wc -l | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/host_status_changes_total.txt 2> /dev/null 
+      grep "Port\ change" $LOOT_DIR/scans/notifications.txt 2> /dev/null | wc -l | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/port_changes_total.txt 2> /dev/null 
+      wc -l $LOOT_DIR/domains/domains_new-*.txt 2> /dev/null | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/domain_changes_total.txt 2> /dev/null 
+      cat $LOOT_DIR/web/dirsearch-new-*.txt $LOOT_DIR/web/spider-new-*.txt 2> /dev/null | wc -l | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/url_changes_total.txt 2> /dev/null
+      if [[ -f "$LOOT_DIR/notes/notepad.html" ]]; then
+        echo -n "" 2>/dev/null
+      else
+        cp "$INSTALL_DIR/pro/notepad.html" "$LOOT_DIR/notes/notepad.html" 2>/dev/null
+        PRE_NAME=$(echo $WORKSPACE | sed "s/\./-/g")
+        sed -i "s/notepad/notepad-$PRE_NAME/g" "$LOOT_DIR/notes/notepad.html" 2> /dev/null
+      fi
+      if [[ "$OMINO_AUTOLOAD" = "1" ]] && [[ ! -f "$INSTALL_DIR/pro/settings.php" ]]; then
+          echo -e "$OKORANGE + -- --=[ Loading OMINO Professional...$RESET"
+          source $INSTALL_DIR/pro.sh
+          sudo $LAST_USER -c $BROWSER $LOOT_DIR/omino-report.html 2> /dev/null > /dev/null &
+      else
+        echo -e "$OKORANGE + -- --=[ Generating OMINO Professional reports...$RESET"
+        source $INSTALL_DIR/pro.sh
+      fi
+    else
+      echo ""
+      echo -e "${OKMAGENTA}  ${RESET}  ${BOLD}${OKYELLOW}⚡ UNLOCK THE FULL POWER OF OMINO ⚡${RESET}${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}                                                            ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}💻 Sleek Web UI${RESET}                         ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}🛠️  Extensive add-ons${RESET}                   ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}🔄 Seamless integrations${RESET}                ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}🤝 Priority support & continuous updates${RESET}${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}          CREATED BY ATHEX BLACK HAT & DIR CYBER             ${OKMAGENTA}${RESET}"
+      echo ""
+      sudo $LAST_USER -c $BROWSER https://github.com/Athexblack/OMINO 2> /dev/null > /dev/null &
+    fi
+    rm -f $UPDATED_TARGETS 2> /dev/null
+    touch $UPDATED_TARGETS 2> /dev/null
+    echo ""
+    echo -e "$OKORANGE + -- --=[ ${BOLD}Mission Complete!${RESET} $OKORANGE]$RESET"
+    echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}The eye closes... but it has seen everything.${RESET} ${OKMAGENTA}⚡${RESET}"
+    echo ""
+  fi
+}
+
+if [[ "$REIMPORT" = "1" ]]; then
+  if [[ ! -z "$WORKSPACE_DIR" ]]; then
+    LOOT="1"
+    loot
+    exit
+  fi
+fi
+
+if [[ "$REIMPORT_ALL" = "1" ]]; then
+  if [[ ! -z "$WORKSPACE_DIR" ]]; then
+    touch $WORKSPACE_DIR/domains/targets.txt $WORKSPACE_DIR/domains/targets-all-sorted.txt $WORKSPACE_DIR/domains/domains-all-sorted.txt
+    cat $WORKSPACE_DIR/domains/targets.txt $WORKSPACE_DIR/domains/targets-all-sorted.txt $WORKSPACE_DIR/domains/domains-all-sorted.txt | sort -u > $WORKSPACE_DIR/scans/updated.txt
+    rm -f $WORKSPACE_DIR/nmap/openports-unsorted.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/nmap/openports-sorted.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/reports/host-table-report.csv 2> /dev/null
+    LOOT="1"
+    loot
+    exit
+  fi
+fi
+
+if [[ "$RELOAD" = "1" ]]; then
+  if [[ ! -z "$WORKSPACE_DIR" ]]; then
+    $BROWSER $WORKSPACE_DIR/omino-report.html 2> /dev/null > /dev/null &
+    exit
+  fi
+fi
+
+if [[ ${TARGET:0:1} =~ $REGEX ]];
+then
+  SCAN_TYPE="IP"
+else
+  SCAN_TYPE="DOMAIN"
+fi
+
+# INITILIZE
+init
+
+if [[ ! -f /tmp/update-check.txt ]]; then
+  # CHECK CONNECTION STATUS
+  check_online
+fi
+
+if [[ ! -f /tmp/update-check.txt ]]; then
+  # CHECK FOR UPDATES
+  check_update
+fi
+
+# CHECK FOR BLACKARCH LINUX
+if grep -q BlackArch /etc/issue; then
+  DISTRO='blackarch'
+  echo "Detected BlackArch GNU/Linux"
+  INSTALL_DIR=$(pwd)
+  echo "Setting current path to $INSTALL_DIR"
+fi
+
+source modes/discover.sh
+source modes/flyover.sh
+source modes/vulnscan.sh
+source modes/fullportonly.sh
+source modes/web.sh
+source modes/webporthttp.sh
+source modes/webporthttps.sh
+source modes/webscan.sh
+source modes/massweb.sh
+source modes/masswebscan.sh
+source modes/massvulnscan.sh
+source modes/massportscan.sh
+source modes/stealth.sh
+source modes/airstrike.sh
+source modes/nuke.sh
+source modes/normal.sh
+
+rm -f /tmp/update-check.txt 2> /dev/null
+
+exit 0

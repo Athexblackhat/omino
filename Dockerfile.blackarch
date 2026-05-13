@@ -1,0 +1,9 @@
+FROM docker.io/blackarchlinux/blackarch:latest
+
+# Upgrade system
+RUN pacman -Syu --noconfirm
+
+# Install omino from official repository
+RUN pacman -Sy omino --noconfirm
+
+CMD ["omino"]

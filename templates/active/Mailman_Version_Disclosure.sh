@@ -1,0 +1,9 @@
+AUTHOR='@Athexblackhat'
+VULN_NAME='Mailman Version Disclosure'
+URI='/mailman/listinfo'
+METHOD='GET'
+MATCH="Delivered\ by\ Mailman"
+SEVERITY='P5 - INFO'
+CURL_OPTS="--user-agent '' -s -L --insecure"
+SECONDARY_COMMANDS=''
+GREP_OPTIONS=''

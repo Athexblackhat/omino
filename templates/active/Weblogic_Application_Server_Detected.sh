@@ -1,0 +1,9 @@
+AUTHOR='@Athexblackhat'
+VULN_NAME='Weblogic Application Server Detected'
+URI='/'
+METHOD='GET'
+MATCH="Weblogic\ Application\ Server"
+SEVERITY='P5 - INFO'
+CURL_OPTS="--user-agent '' -s -L --insecure"
+SECONDARY_COMMANDS=''
+GREP_OPTIONS='-i'

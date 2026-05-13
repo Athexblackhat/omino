@@ -1,0 +1,8 @@
+AUTHOR='@Athexblackhat'
+VULN_NAME='Autocomplete Enabled'
+FILENAME="$LOOT_DIR/web/websource-htt*-$TARGET-*.txt"
+MATCH='autocomplete=\"on\"'
+SEVERITY='P4 - LOW'
+GREP_OPTIONS='-i'
+SEARCH='positive'
+SECONDARY_COMMANDS=''
