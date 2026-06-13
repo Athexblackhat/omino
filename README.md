@@ -760,21 +760,18 @@ We welcome contributions from the security community. omino is what it is thanks
 <tr>
 <td align="center">
 <img src="https://github.com/Athexblackhat.png" width="90px" style="border-radius:50%"/><br/>
-<b>@xer0dayz</b><br/>
+<b>@Athexblackhat</b><br/>
 <sub>Creator & Lead Developer</sub><br/>
-<a href="https://github.com/Athexblackhat">GitHub</a> · <a href="https://twitter.com/xer0dayz">Twitter</a>
+<a href="https://github.com/Athexblackhat">GitHub</a>.
 </td>
 <td align="center">
-<img src="https://github.com/gbiagomba.png" width="90px" style="border-radius:50%"/><br/>
-<b>D4rth R3v4n</b><br/>
-<sub>Multi-Distro Architect</sub><br/>
-<a href="https://github.com/gbiagomba">GitHub</a>
+<img src="https://github.com/.png" width="90px" style="border-radius:50%"/><br/>
+<b>DIR CYBER</b><br/>
+<sub>Forensic Investigator</sub><br/>
+<a href="https://github.com/">GitHub</a>
 </td>
 </tr>
 </table>
-
-*Plus 35+ contributors worldwide — [view all →](https://github.com/Athexblackhat/omino/graphs/contributors)*
-
 </div>
 
 ---
@@ -810,8 +807,7 @@ We welcome contributions from the security community. omino is what it is thanks
 <div align="center">
 
 [![GitHub Issues](https://img.shields.io/badge/GitHub-Issues-e94560?style=for-the-badge&logo=github&labelColor=1a1a2e)](https://github.com/Athexblackhat/omino/issues)
-[![Twitter](https://img.shields.io/badge/Twitter-@xer0dayz-1DA1F2?style=for-the-badge&logo=twitter&labelColor=1a1a2e)](https://twitter.com/xer0dayz)
-[![YouTube](https://img.shields.io/badge/YouTube-Tutorials-FF0000?style=for-the-badge&logo=youtube&labelColor=1a1a2e)](https://youtube.com)
+[![YouTube](https://img.shields.io/badge/YouTube-Tutorials-FF0000?style=for-the-badge&logo=youtube&labelColor=1a1a2e)](https://youtube.com/@inziXploit444)
 [![Wiki](https://img.shields.io/badge/Wiki-Documentation-533483?style=for-the-badge&logo=gitbook&labelColor=1a1a2e)](https://github.com/Athexblackhat/omino/wiki)
 
 </div>
