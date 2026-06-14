@@ -1,10 +1,16 @@
 #!/bin/bash
-# ╔═╗╔╦╗╦╔╗╔╔═╗  
+# ╔═╗╔╦╗╦╔╗╔╔═╗ 
 # ║ ║║║║║║║║║ ║  
 # ╚═╝╩ ╩╩╝╚╝╚═╝  
-# Advanced Multi-distro Installer with Real-time Animations
-# Created by ATHEX BLACK HAT × DIR CYBER
-# Rebranded & Animated Edition
+# + -- --=[ omino Black Hat Edition
+# + -- --=[ The Eye That Sees All
+# + -- --=[ Advanced Security Reconnaissance Suite
+#
+
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root"
+   exit 1
+fi
 
 OKBLUE='\033[94m'
 OKRED='\033[91m'
@@ -18,82 +24,20 @@ RESET='\e[0m'
 BOLD='\033[1m'
 DIM='\033[2m'
 BLINK='\033[5m'
-REVERSE='\033[7m'
 UNDERLINE='\033[4m'
+
 SPINNER_FRAMES=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
-SPINNER_FRAMES_ADV=('▁' '▂' '▃' '▄' '▅' '▆' '▇' '█' '▇' '▆' '▅' '▄' '▃' '▂' '▁')
-PROGRESS_CHARS=('█' '▓' '▒' '░')
-MATRIX_CHARS=('0' '1' '7' 'A' 'F' '3' '9' 'C')
-MATRIX_COLORS=('\033[32m' '\033[92m' '\033[36m' '\033[91m')
 TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
-TERM_HEIGHT=$(tput lines 2>/dev/null || echo 24)
-ANIMATION_PID=""
-CLEANUP_DONE=false
-OS=""
-PKG_MANAGER=""
-center_text() {
-    local text="$1"
-    local width=${2:-$TERM_WIDTH}
-    local text_length=${#text}
-    local padding=$(( (width - text_length) / 2 ))
-    [[ $padding -lt 0 ]] && padding=0
-    printf "%${padding}s" ""
-}
-hide_cursor() {
-    printf "\e[?25l"
-}
-show_cursor() {
-    printf "\e[?25h"
-}
-save_cursor() {
-    printf "\e[s"
-}
-restore_cursor() {
-    printf "\e[u"
-}
-move_cursor() {
-    local row=$1
-    local col=$2
-    printf "\e[${row};${col}H"
-}
-clear_line() {
-    printf "\e[2K"
-}
-clear_screen() {
-    printf "\e[2J\e[H"
-}
-matrix_rain() {
-    local duration=${1:-2}
-    local cols=()
-    local lines=()
-    for ((i=0; i<TERM_WIDTH; i+=2)); do
-        cols+=($i)
-        lines+=(0)
-    done
-    local end_time=$(($(date +%s) + duration))
-    while [[ $(date +%s) -lt $end_time ]]; do
-        for idx in "${!cols[@]}"; do
-            local col=${cols[$idx]}
-            local line=${lines[$idx]}
-            local char=${MATRIX_CHARS[$((RANDOM % ${#MATRIX_CHARS[@]}))]}
-            local color=${MATRIX_COLORS[$((RANDOM % ${#MATRIX_COLORS[@]}))]}
-            if [[ $line -lt $TERM_HEIGHT ]] && [[ $col -lt $TERM_WIDTH ]]; then
-                move_cursor $((line + 1)) $((col + 1))
-                printf "${color}${char}${RESET}"
-            fi
-            lines[$idx]=$((line + 1))
-            if [[ ${lines[$idx]} -gt $TERM_HEIGHT ]]; then
-                lines[$idx]=0
-            fi
-        done
-        sleep 0.03
-    done
-}
+
+hide_cursor() { printf "\e[?25l"; }
+show_cursor() { printf "\e[?25h"; }
+clear_line() { printf "\e[2K\r"; }
 spinner() {
     local message="$1"
     local pid=$2
     local frame=0
     local color=${3:-$OKCYAN}
+    
     while kill -0 $pid 2>/dev/null; do
         local spin_char=${SPINNER_FRAMES[$frame]}
         printf "\r\033[K  ${color}${spin_char}${RESET} ${message}"
@@ -102,49 +46,12 @@ spinner() {
     done
     printf "\r\033[K  ${OKGREEN}✓${RESET} ${message}\n"
 }
-progress_bar() {
-    local current=$1
-    local total=$2
-    local message=${3:-"Progress"}
-    local bar_width=40
-    if [[ $total -eq 0 ]]; then
-        total=1
-    fi
-    local filled=$(( current * bar_width / total ))
-    local empty=$(( bar_width - filled ))
-    local percentage=$(( current * 100 / total ))
-    printf "\r  ${OKCYAN}[${RESET}"
-    for ((i=0; i<filled; i++)); do
-        if [[ $i -lt $((bar_width / 3)) ]]; then
-            printf "${OKGREEN}▓${RESET}"
-        elif [[ $i -lt $((bar_width * 2 / 3)) ]]; then
-            printf "${OKCYAN}▓${RESET}"
-        else
-            printf "${OKBLUE}▓${RESET}"
-        fi
-    done
-    for ((i=0; i<empty; i++)); do
-        printf "${DIM}░${RESET}"
-    done
-    printf "${OKCYAN}]${RESET} %3d%% %s" "$percentage" "$message"
-}
-pulse_effect() {
-    local text="$1"
-    local color="$2"
-    local duration=${3:-2}
-    local end_time=$(($(date +%s) + duration))
-    while [[ $(date +%s) -lt $end_time ]]; do
-        printf "\r${color}${BOLD}${text}${RESET}"
-        sleep 0.2
-        printf "\r${color}${DIM}${text}${RESET}"
-        sleep 0.2
-    done
-    printf "\r${color}${BOLD}${text}${RESET}\n"
-}
+
 type_text() {
     local text="$1"
     local delay=${2:-0.02}
     local color=${3:-$OKWHITE}
+    
     printf "${color}"
     for ((i=0; i<${#text}; i++)); do
         printf "${text:$i:1}"
@@ -152,14 +59,546 @@ type_text() {
     done
     printf "${RESET}\n"
 }
-display_banner() {
-    clear_screen
-    hide_cursor
-    matrix_rain 2 &
-    local matrix_pid=$!
-    wait $matrix_pid 2>/dev/null
-    clear_screen
+
+progress_bar() {
+    local current=$1
+    local total=$2
+    local message=${3:-"Processing"}
+    local bar_width=30
+    local filled=$(( current * bar_width / total ))
+    local empty=$(( bar_width - filled ))
+    local percentage=$(( current * 100 / total ))
+    
+    printf "\r  ${OKCYAN}[${RESET}"
+    for ((i=0; i<filled; i++)); do
+        if [[ $i -lt $((bar_width / 3)) ]]; then
+            printf "${OKGREEN}█${RESET}"
+        elif [[ $i -lt $((bar_width * 2 / 3)) ]]; then
+            printf "${OKCYAN}█${RESET}"
+        else
+            printf "${OKBLUE}█${RESET}"
+        fi
+    done
+    for ((i=0; i<empty; i++)); do
+        printf "${DIM}░${RESET}"
+    done
+    printf "${OKCYAN}]${RESET} ${percentage}%% ${message}"
+}
+
+VER="1.0"
+INSTALL_DIR="/usr/share/omino"
+LOOT_DIR="$INSTALL_DIR/loot/$TARGET"
+omino_PRO=$INSTALL_DIR/pro.sh
+
+function logo {
+  clear
+  echo ""
+  echo ""
+  echo -e "${BOLD}${OKRED}    ██████╗ ███╗   ███╗██╗███╗   ██╗ ██████╗ ${RESET}"
+  echo -e "${BOLD}${OKRED}   ██╔═══██╗████╗ ████║██║████╗  ██║██╔═══██╗${RESET}"
+  echo -e "${BOLD}${OKRED}   ██║   ██║██╔████╔██║██║██╔██╗ ██║██║   ██║${RESET}"
+  echo -e "${BOLD}${OKRED}   ██║   ██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║${RESET}"
+  echo -e "${BOLD}${OKRED}   ╚██████╔╝██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝${RESET}"
+  echo -e "${BOLD}${OKRED}    ╚═════╝ ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ${RESET}"
+  echo ""
+  echo -e "${OKCYAN}${RESET} ${BOLD}${OKORANGE}ADVANCED SECURITY RECONNAISSANCE SUITE${RESET}${OKCYAN}${RESET}"
+  echo ""
+  echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}omino ${OKMAGENTA}⚡ ${OKCYAN}- The Eye That Sees All${RESET}"
+  echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}BLACK HAT EDITION v${VER} ${OKMAGENTA}⚡ ${OKRED}- For Authorized Use Only${RESET}"
+  echo ""
+  echo -e "${OKORANGE} + -- --=[ omino v${VER} - Reborn from the shadows${RESET}"
+  echo ""
+}
+
+# INIT POSTGRESQL
+service postgresql start 2> /dev/null
+
+# LOAD DEFAULT omino CONFIGURATION FILE
+dos2unix $INSTALL_DIR/omino.conf 2> /dev/null > /dev/null
+source $INSTALL_DIR/omino.conf
+echo -e "$OKBLUE[*]$RESET Loaded configuration file from $INSTALL_DIR/omino.conf $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+
+if [[ -f /root/.omino.conf ]]; then
+  # LOAD USER omino CONFIGURATION FILE
+  dos2unix /root/.omino.conf 2> /dev/null > /dev/null
+  source /root/.omino.conf
+  echo -e "$OKBLUE[*]$RESET Loaded configuration file from /root/.omino.conf $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+
+  if [[ -f /root/.omino_api_keys.conf ]]; then
+    # LOAD USER API KEYS (PERSISTENT CONFIG)
+    dos2unix /root/.omino_api_keys.conf 2> /dev/null > /dev/null
+    source /root/.omino_api_keys.conf
+    echo -e "$OKBLUE[*]$RESET Loaded API keys from /root/.omino_api_keys.conf $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+  fi
+
+else
+  # IF NO USER CONFIG PRESENT, CREATE IT FROM THE DEFAULT TEMPLATE
+  cp $INSTALL_DIR/omino.conf /root/.omino.conf 2> /dev/null
+  dos2unix /root/.omino.conf 2> /dev/null > /dev/null
+  source /root/.omino.conf
+  echo -e "$OKBLUE[*]$RESET Loaded configuration file from /root/.omino.conf $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+fi
+
+DISTRO=$(cat /etc/*-release | grep DISTRIB_ID= | cut -d'=' -f2)
+
+function help {
+  logo
+  local star
+  printf -v star "$OKBLUE[*]$RESET"
+  
+  echo ""
+
+  echo -e "${OKCYAN}${BOLD}${OKORANGE}COMMAND REFERENCE${RESET}${OKCYAN}${RESET}"
+
+  echo ""
+  
+  cat <<EOHELP
+
+$star ${BOLD}NORMAL MODE${RESET}
+ omino -t <TARGET>
+
+$star ${BOLD}SPECIFY CUSTOM CONFIG FILE${RESET}
+ omino -c /full/path/to/omino.conf -t <TARGET> -m <MODE> -w <WORKSPACE>
+
+$star ${BOLD}NORMAL MODE + OSINT + RECON${RESET}
+ omino -t <TARGET> -o -re
+
+$star ${BOLD}STEALTH MODE + OSINT + RECON${RESET}
+ omino -t <TARGET> -m stealth -o -re
+
+$star ${BOLD}DISCOVER MODE${RESET}
+ omino -t <CIDR> -m discover -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}SCAN ONLY SPECIFIC PORT${RESET}
+ omino -t <TARGET> -m port -p <portnum>
+
+$star ${BOLD}FULLPORTONLY SCAN MODE${RESET}
+ omino -t <TARGET> -fp
+
+$star ${BOLD}WEB MODE - PORT 80 + 443 ONLY!${RESET}
+ omino -t <TARGET> -m web
+
+$star ${BOLD}HTTP WEB PORT MODE${RESET}
+ omino -t <TARGET> -m webporthttp -p <port>
+
+$star ${BOLD}HTTPS WEB PORT MODE${RESET}
+ omino -t <TARGET> -m webporthttps -p <port>
+
+$star ${BOLD}HTTP WEBSCAN MODE${RESET}
+ omino -t <TARGET> -m webscan
+
+$star ${BOLD}ENABLE BRUTEFORCE${RESET}
+ omino -t <TARGET> -b
+
+$star ${BOLD}AIRSTRIKE MODE${RESET}
+ omino -f targets.txt -m airstrike
+
+$star ${BOLD}NUKE MODE WITH TARGET LIST, BRUTEFORCE ENABLED, FULLPORTSCAN ENABLED, OSINT ENABLED, RECON ENABLED, WORKSPACE & LOOT ENABLED${RESET}
+ omino -f targets.txt -m nuke -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}MASS PORT SCAN MODE${RESET}
+ omino -f targets.txt -m massportscan -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}MASS WEB SCAN MODE${RESET}
+ omino -f targets.txt -m massweb -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}MASS WEBSCAN SCAN MODE${RESET}
+ omino -f targets.txt -m masswebscan -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}MASS VULN SCAN MODE${RESET}
+ omino -f targets.txt -m massvulnscan -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}PORT SCAN MODE${RESET}
+ omino -t <TARGET> -m port -p <PORT_NUM>
+
+$star ${BOLD}LIST WORKSPACES${RESET}
+ omino --list
+
+$star ${BOLD}DELETE WORKSPACE${RESET}
+ omino -w <WORKSPACE_ALIAS> -d
+
+$star ${BOLD}DELETE HOST FROM WORKSPACE${RESET}
+ omino -w <WORKSPACE_ALIAS> -t <TARGET> -dh
+
+$star ${BOLD}DELETE TASKS FROM WORKSPACE${RESET}
+ omino -w <WORKSPACE_ALIAS> -t <TARGET> -dt
+
+$star ${BOLD}GET omino SCAN STATUS${RESET}
+ omino --status
+
+$star ${BOLD}LOOT REIMPORT FUNCTION${RESET}
+ omino -w <WORKSPACE_ALIAS> --reimport
+
+$star ${BOLD}LOOT REIMPORTALL FUNCTION${RESET}
+ omino -w <WORKSPACE_ALIAS> --reimportall
+
+$star ${BOLD}LOOT RELOAD FUNCTION${RESET}
+ omino -w <WORKSPACE_ALIAS> --reload
+
+$star ${BOLD}LOOT EXPORT FUNCTION${RESET}
+ omino -w <WORKSPACE_ALIAS> --export
+
+$star ${BOLD}SCHEDULED SCANS${RESET}
+ omino -w <WORKSPACE_ALIAS> -s daily|weekly|monthly
+
+$star ${BOLD}USE A CUSTOM CONFIG${RESET}
+ omino -c /path/to/omino.conf -t <TARGET> -w <WORKSPACE_ALIAS>
+
+$star ${BOLD}UPDATE omino${RESET}
+ omino -u|--update
+
+EOHELP
+
+  echo ""
+  echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}The shadows protect, but omino reveals...${RESET} ${OKMAGENTA}⚡${RESET}"
+  echo ""
+  exit
+}
+
+function omino_status {
+  logo
+  echo -e "${OKCYAN}${BOLD}${OKORANGE}ACTIVE OPERATIONS${RESET}${OKCYAN}${RESET}"
+  echo ""
+  watch -n 1 -c 'ps -ef | egrep "omino|slurp|hydra|ruby|python|dirsearch|amass|nmap|metasploit|curl|wget|nikto" && echo "NETWORK CONNECTIONS..." && netstat -an | egrep "TIME_WAIT|EST"'
+}
+
+# CHECK FOR UPDATES
+function check_update {
+  if [[ "$ENABLE_AUTO_UPDATES" == "1" ]] && [[ "$ONLINE" == "1" ]]; then
+    LATEST_VER=$(curl --connect-timeout 5 -s https://api.github.com/repos/Athexblackhat/omino/tags | grep -Po '"name":.*?[^\\]",'| head -1 | cut -c11-13)
+    if [[ "$LATEST_VER" != "$VER" ]]; then
+      echo -e "$OKBLUE[$RESET${OKRED}⚡${RESET}$OKBLUE] omino v$LATEST_VER is available to download... To update, type$OKRED \"omino -u\" $RESET"
+    fi
+  fi
+  touch /tmp/update-check.txt 2> /dev/null
+}
+
+# APPLY UPDATES
+function update {
+  logo
+  echo -e "$OKBLUE[*]$RESET ${OKCYAN}Consulting the oracle for updates...${RESET}$OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+  if [[ "$ONLINE" == "0" ]]; then
+    echo "You will need to download the latest release manually at https://github.com/Athexblackhat/omino/"
+  else
+    LATEST_VER=$(curl --connect-timeout 5 -s https://api.github.com/repos/Athexblackhat/omino/tags | grep -Po '"name":.*?[^\\]",'| head -1 | cut -c11-13)
+    if [[ "$LATEST_VER" != "$VER" ]]; then
+      echo -e "$OKBLUE[$RESET${OKRED}⚡${RESET}$OKBLUE] omino $LATEST_VER is available... Do you want to update? (y or n)$RESET"
+      read ans
+      if [[ "$ans" = "y" ]]; then
+        rm -Rf /tmp/omino/ 2>/dev/null
+        git clone https://github.com/Athexblackhat/omino /tmp/omino/
+        cd /tmp/omino/
+        chmod +rx install.sh
+        bash install.sh
+        rm -Rf /tmp/omino/ 2>/dev/null
+        exit
+      fi
+    fi
+  fi
+}
+
+if [[ "$UPDATE" = "1" ]]; then
+  update
+  exit
+fi
+
+function check_online {
+  echo -e "${OKCYAN}${BOLD}${OKORANGE}ESTABLISHING CONNECTION...${RESET}${OKCYAN}${RESET}"
+  echo ""
+  
+  ONLINE=$(curl --connect-timeout 3 --insecure -s "https://github.com/Athexblackhat?$VER&mid=$(cat /etc/machine-id)" 2> /dev/null)
+  if [[ -z "$ONLINE" ]]; then
+    ONLINE=$(curl --connect-timeout 3 -s https://api.github.com/repos/Athexblackhat/omino/tags | grep -Po '"name":.*?[^\\]",'| head -1 | cut -c11-13)
+    if [[ -z "$ONLINE" ]]; then
+      ONLINE="0"
+      echo -e "$OKBLUE[*]$RESET Checking for active internet connection $OKBLUE[$RESET${OKRED}FAIL${RESET}$OKBLUE]"
+      echo -e "$OKBLUE[$RESET${OKRED}⚡${RESET}$OKBLUE]$RESET omino is running in offline mode.$RESET"
+    else
+      ONLINE="1"
+      echo -e "$OKBLUE[*]$RESET Checking for active internet connection $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    fi
+  else
+    ONLINE="1"
+    echo -e "$OKBLUE[*]$RESET Checking for active internet connection $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+  fi
+}
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+key="$1"
+
+case $key in
+    -h|--help)
+    help
+    shift 
+    ;;
+    -c|--config)
+    CONFIG="$2"
+    echo -e "$OKBLUE[*]$RESET Creating backup of existing config to /root/.omino.conf.bak...$OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    cp -f /root/.omino.conf /root/.omino.conf.bak
+    echo -e "$OKBLUE[*]$RESET Copying $CONFIG to /root/.omino.conf...$OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    cp -f $CONFIG /root/.omino.conf 2> /dev/null
+    dos2unix /root/.omino.conf 2> /dev/null > /dev/null
+    source /root/.omino.conf
+    sleep 1
+    shift
+    shift
+    ;;
+    -t)
+    TARGET="$2"
+    shift 
+    shift 
+    ;;
+    -b)
+    AUTO_BRUTE="1"
+    shift 
+    ;;
+    -fp|--fullportscan)
+    FULLNMAPSCAN="1"
+    shift 
+    ;;
+    -o|--osint)
+    OSINT="1"
+    shift 
+    ;;
+    -re|--recon)
+    RECON="1"
+    shift 
+    ;;
+    -m)
+    MODE="$2"
+    shift 
+    shift 
+    ;;
+    -p)
+    PORT="$2"
+    shift 
+    shift 
+    ;;
+    -f|--file)
+    FILE="$(realpath $2)"
+    shift 
+    shift 
+    ;;
+    -ri|--reimport)
+    REIMPORT="1"
+    shift 
+    ;;
+    -ria|--reimportall)
+    REIMPORT_ALL="1"
+    shift 
+    ;;
+    -rl|--reload)
+    RELOAD="1"
+    shift 
+    ;;
+    -n|--noreport)
+    REPORT="0"
+    shift 
+    ;;
+    -nl|--noloot)
+    LOOT="0"
+    NOLOOT="1"
+    shift 
+    ;;
+    -w)
+    WORKSPACE="$(echo $2 | tr / -)"
+    WORKSPACE_DIR="$INSTALL_DIR/loot/workspace/$WORKSPACE"
+    shift 
+    shift 
+    ;;
+    -s|--schedule)
+    if [[ -z "$WORKSPACE" ]]; then
+      echo "You need to set a workspace via the -w switch to schedule a scan task."
+      exit
+    fi
+    SCHEDULE_ARG="$2"
+    if [[ "$SCHEDULE_ARG" = "daily" ]] || [[ "$SCHEDULE_ARG" = "weekly" ]] || [[ "$SCHEDULE_ARG" = "monthly" ]]; then
+      SCHEDULE_TASK="$WORKSPACE_DIR/scans/scheduled/$SCHEDULE_ARG.sh"
+      vim $SCHEDULE_TASK
+      cat $WORKSPACE_DIR/scans/scheduled/*.sh 2> /dev/null
+      exit
+    else
+      echo "You need to specify either daily, weekly or monthly for the scheduled scan argument."
+      exit
+    fi
+    shift 
+    shift 
+    ;;
+    -d|--delete)
+    logo
+    echo -e "${OKRED}  ⚠️  WARNING: This will permanently delete the workspace!${RESET}"
+    echo "Are you sure you want to remove the following workspace? (Hit Ctrl+C to exit): /usr/share/omino/loot/workspace/$WORKSPACE/"
+    read ANS
+    rm -Rf /usr/share/omino/loot/workspace/$WORKSPACE/
+    echo "Workspace /usr/share/omino/loot/workspace/$WORKSPACE/ was removed."
+    omino -w default --reimport
+    exit
+    shift 
+    ;;
+    -dh|--delete-host)
+    echo "Removing $TARGET from $WORKSPACE"
+    sed -i "/$TARGET/d" $WORKSPACE_DIR/domains/* $WORKSPACE_DIR/reports/host-table-report.csv
+    egrep -R "$TARGET" $WORKSPACE_DIR/domains/* $WORKSPACE_DIR/reports/host-table-report.csv
+    rm -f $WORKSPACE_DIR/screenshots/$TARGET*.jpg 2> /dev/null
+    rm -f $WORKSPACE_DIR/nmap/dns-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/nmap/ports-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/web/title-*-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/web/headers-*-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/vulnerabilities/sc0pe-$TARGET-*.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/vulnerabilities/vulnerability-report-$TARGET.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/vulnerabilities/vulnerability-risk-$TARGET.txt 2> /dev/null
+    exit
+    shift
+    ;;
+    -dt|--delete-task)
+    echo "Removing all running $TARGET tasks from $WORKSPACE"
+    rm -vf $WORKSPACE_DIR/scans/running_$TARGET_*.txt
+    ls -lh $LOOT_DIR/scans/running_*.txt 2> /dev/null | wc -l 2> /dev/null > $WORKSPACE_DIR/scans/tasks-running.txt 2> /dev/null
+    ps -ef | egrep "$TARGET|omino"
+    ps -ef | egrep "omino" | awk '{print $2}' | xargs -i sudo kill -9 {} 
+    exit
+    shift 
+    ;;
+    --list)
+    logo
+    echo -e "${OKCYAN}${BOLD}${OKORANGE}AVAILABLE WORKSPACES${RESET}${OKCYAN}${RESET}"
     echo ""
+    ls -l $INSTALL_DIR/loot/workspace/
+    echo ""
+    echo "cd /usr/share/omino/loot/workspace/"
+    WORKSPACE_REPORT=$LOOT_DIR/omino-report.html
+    if [[ -f $WORKSPACE_REPORT ]]; then
+      echo -e "$OKORANGE + -- --=[ Loading omino Professional...$RESET"
+      $BROWSER $INSTALL_DIR/loot/workspace/omino-report.html 2> /dev/null > /dev/null &
+    else
+      echo -e "$OKORANGE + -- --=[ Loading workspaces...$RESET"
+      $BROWSER $INSTALL_DIR/loot/workspace/ 2> /dev/null > /dev/null &
+    fi
+    exit
+    shift
+    ;;
+    --export)
+    if [[ -z "$WORKSPACE" ]]; then
+      echo "You need to set a workspace via the -w switch to export a workspace."
+      exit
+    fi
+    echo "Archiving $WORKSPACE to $INSTALL_DIR/loot/$WORKSPACE.tar"
+    cd $INSTALL_DIR/loot/workspace/ && tar -cvf ../$WORKSPACE.tar $WORKSPACE 
+    cp -Rf $WORKSPACE ${WORKSPACE}_`date +"%Y-%m-%d"`
+    echo "Done!"
+    exit
+    shift
+    ;;
+    -s|--status)
+    omino_status
+    exit
+    shift
+    ;;
+    -u|--update)
+    UPDATE="1"
+    update
+    exit
+    shift 
+    ;;
+    *)    # unknown option
+    POSITIONAL+=("$1")
+    echo "Unknown scan option $POSITIONAL...refer to the help menu for usage details."
+    exit
+    shift 
+    ;;
+esac
+done
+set -- "${POSITIONAL[@]}" # restore positional parameters
+
+if [[ ! -z "$TARGET" ]] && [[ -z "$WORKSPACE" ]]; then
+  WORKSPACE=$(echo "$TARGET")
+fi
+
+if [[ -z "$TARGET" ]] && [[ -z "$WORKSPACE" ]]; then
+  logo
+  echo -e "${OKRED}  ⚠️  You need to specify a target or workspace to use.${RESET}"
+  echo -e "${OKCYAN}  Type ${BOLD}omino --help${RESET}${OKCYAN} for command usage.${RESET}"
+  exit
+fi
+
+cd $INSTALL_DIR
+
+function init {
+  if [[ ! -z $WORKSPACE_DIR ]]; then
+    LOOT_DIR=$WORKSPACE_DIR
+  fi
+  
+
+  echo -e "${OKCYAN}${BOLD}${OKORANGE}INITIALIZING OPERATION...${RESET}${OKCYAN}${RESET}"
+  echo ""
+  
+  echo -e "$OKBLUE[*]$RESET Saving loot to $LOOT_DIR $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+  mkdir -p $LOOT_DIR 2> /dev/nul
+  mkdir $LOOT_DIR/domains 2> /dev/null
+  mkdir $LOOT_DIR/ips 2> /dev/null
+  mkdir $LOOT_DIR/screenshots 2> /dev/null
+  mkdir $LOOT_DIR/nmap 2> /dev/null
+  mkdir $LOOT_DIR/reports 2> /dev/null
+  mkdir $LOOT_DIR/output 2> /dev/null
+  mkdir $LOOT_DIR/osint 2> /dev/null
+  mkdir $LOOT_DIR/credentials 2> /dev/null
+  mkdir $LOOT_DIR/web 2> /dev/null
+  mkdir $LOOT_DIR/vulnerabilities 2> /dev/null
+  mkdir $LOOT_DIR/notes 2> /dev/null
+  mkdir -p $LOOT_DIR/scans/scheduled/ 2> /dev/null
+  touch $LOOT_DIR/scans/scheduled/daily.sh 2> /dev/null
+  touch $LOOT_DIR/scans/scheduled/weekly.sh 2> /dev/null
+  touch $LOOT_DIR/scans/scheduled/monthly.sh 2> /dev/null
+  touch $LOOT_DIR/scans/notifications.txt 2> /dev/null
+  touch $LOOT_DIR/scans/notifications_new.txt 2> /dev/null
+  chmod 777 -Rf $INSTALL_DIR 2> /dev/null
+  chown root $INSTALL_DIR/omino 2> /dev/null
+  chmod 4777 $INSTALL_DIR/omino 2> /dev/null
+  TARGET="$(echo $TARGET | sed 's/https:\/\///g' | sed 's/http:\/\///g')"
+  rm -f /tmp/out_of_scope 2> /dev/null
+  for key in "${OUT_OF_SCOPE[@]}"; do echo $TARGET | egrep ${key} >> /tmp/out_of_scope 2> /dev/null; done;
+  OUT_OF_SCOPE_NUM=$(wc -l /tmp/out_of_scope 2> /dev/null | awk '{print $1}' 2> /dev/null)
+  if [[ $OUT_OF_SCOPE_NUM > 0 ]]; then
+    echo -e "$OKBLUE[$RESET${OKRED}⚡${RESET}$OKBLUE] $TARGET is out of scope. Skipping! $RESET"
+    exit
+  else
+    echo -e "$OKBLUE[*]$RESET ${BOLD}Scanning $TARGET${RESET} $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}The eye opens... ${RESET}${OKMAGENTA}⚡${RESET}"
+    echo "$TARGET" >> $LOOT_DIR/domains/targets.txt 2> /dev/null
+  fi
+  service postgresql start 2> /dev/null > /dev/null
+  msfdb start 2> /dev/null > /dev/null
+  chown root /run/user/1000/gdm/Xauthority 2> /dev/null
+  LAST_USER=$(last 2> /dev/null | head -n 1 | awk '{print $1}')
+  sudo cp -a /home/$LAST_USER/.Xauthority /root/.Xauthority 2> /dev/null
+  sudo cp -a /root/.Xauthority /root/.Xauthority.bak 2> /dev/null
+  sudo cp -a /home/$USER/.Xauthority /root/.Xauthority 2> /dev/null
+  sudo cp -a /home/kali/.Xauthority /root/.Xauthority 2> /dev/null
+  sudo chown root: /root/.Xauthority 2> /dev/null
+  XAUTHORITY=/root/.Xauthority
+  UPDATED_TARGETS=$LOOT_DIR/scans/updated.txt
+  if [[ "$AUTO_BRUTE" == "1" ]]; then
+    echo "$TARGET AUTO_BRUTE `date +"%Y-%m-%d %H:%M"`" 2> /dev/null >> $LOOT_DIR/scans/tasks.txt
+    touch $LOOT_DIR/scans/$TARGET-AUTO_BRUTE.txt 2> /dev/null
+  fi
+  if [[ "$FULLNMAPSCAN" == "1" ]]; then
+    echo "$TARGET fullnmapscan `date +"%Y-%m-%d %H:%M"`" 2> /dev/null >> $LOOT_DIR/scans/tasks.txt
+    touch $LOOT_DIR/scans/$TARGET-fullnmapscan.txt 2> /dev/null
+  fi
+  if [[ "$OSINT" == "1" ]]; then
+    echo "$TARGET osint `date +"%Y-%m-%d %H:%M"`" 2> /dev/null >> $LOOT_DIR/scans/tasks.txt
+    touch $LOOT_DIR/scans/$TARGET-osint.txt 2> /dev/null
+  fi
+  if [[ "$RECON" == "1" ]]; then
+    echo "$TARGET recon `date +"%Y-%m-%d %H:%M"`" 2> /dev/null >> $LOOT_DIR/scans/tasks.txt
+    touch $LOOT_DIR/scans/$TARGET-recon.txt 2> /dev/null
+  fi
+}
+
+function loot {
+  if [[ ! $LOOT == "0" ]]; then
     echo ""
     echo -e "${BOLD}${OKRED}    ██████╗ ███╗   ███╗██╗███╗   ██╗ ██████╗ ${RESET}"
     echo -e "${BOLD}${OKRED}   ██╔═══██╗████╗ ████║██║████╗  ██║██╔═══██╗${RESET}"
@@ -168,378 +607,194 @@ display_banner() {
     echo -e "${BOLD}${OKRED}   ╚██████╔╝██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝${RESET}"
     echo -e "${BOLD}${OKRED}    ╚═════╝ ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝ ${RESET}"
     echo ""
-    echo -e "${OKCYAN}  ${RESET}   ${BOLD}${OKORANGE}ADVANCED SECURITY RECONNAISSANCE SUITE${RESET}     ${OKCYAN}${RESET}"
-    echo -e "${OKCYAN}  ${RESET}   ${BOLD}${OKRED}CREATED BY ATHEX BLACK HAT × DIR CYBER${RESET}      ${OKCYAN}${RESET}"
+    echo -e "${OKCYAN}${RESET}${BOLD}${OKORANGE}GATHERING INTELLIGENCE...${RESET} ${OKCYAN}${RESET}"
     echo ""
-    echo -e "${DIM}  Powered by ATHEX | Multi-Distro Support | Auto-Dependency Resolution${RESET}"
-    echo ""
-    echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}OMINO ${OKMAGENTA}⚡ ${OKCYAN}- The Eye That Sees All${RESET}"
-    echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}BLACK HAT EDITION ${OKMAGENTA}⚡ ${OKRED}- For Authorized Use Only${RESET}"
-    echo ""
-    echo ""
-}
-section_header() {
-    local title="$1"
-    local icon="$2"
-    local color="$3"
-    local width=50
-    echo ""
-    printf "${color}${BOLD}  ╔"
-    for ((i=0; i<width; i++)); do printf "═"; done
-    printf "╗${RESET}\n"
-    printf "${color}${BOLD}  ║${RESET} ${icon} ${BOLD}${title}${RESET}\n"
-    printf "${color}${BOLD}  ╚"
-    for ((i=0; i<width; i++)); do printf "═"; done
-    printf "╝${RESET}\n"
-    echo ""
-}
-display_system_info() {
-    local os_name=""
-    local kernel=""
-    local arch=""
-    local cpu=""
-    local ram=""
-    case "$(uname -s)" in
-        Linux*)   os_name="🐧 Linux" ;;
-        Darwin*)  os_name="🍎 macOS" ;;
-        *)        os_name="💻 Unknown" ;;
-    esac
-    kernel=$(uname -r)
-    arch=$(uname -m)
-    if command -v nproc &>/dev/null; then
-        cpu="$(nproc) cores"
-    else
-        cpu="Unknown"
-    fi
-    if command -v free &>/dev/null; then
-        ram=$(free -h 2>/dev/null | awk '/^Mem:/ {print $2}')
-    else
-        ram="Unknown"
-    fi
-    echo ""
-    echo -e "${OKCYAN}    ${OKORANGE}${BOLD}SYSTEM INFORMATION${RESET}                            ${OKCYAN}${RESET}"
-    printf "${OKCYAN}  ${RESET}  ${OKWHITE}OS      :${RESET} ${OKGREEN}%-36s${OKCYAN}${RESET}\n" "$os_name"
-    printf "${OKCYAN}  ${RESET}  ${OKWHITE}Kernel  :${RESET} ${OKGREEN}%-36s${OKCYAN}${RESET}\n" "$kernel"
-    printf "${OKCYAN}  ${RESET}  ${OKWHITE}Arch    :${RESET} ${OKGREEN}%-36s${OKCYAN}${RESET}\n" "$arch"
-    printf "${OKCYAN}  ${RESET}  ${OKWHITE}CPU     :${RESET} ${OKGREEN}%-36s${OKCYAN}${RESET}\n" "$cpu"
-    printf "${OKCYAN}  ${RESET}  ${OKWHITE}RAM     :${RESET} ${OKGREEN}%-36s${OKCYAN}${RESET}\n" "$ram"
-    printf "${OKCYAN}  ${RESET}  ${OKWHITE}Shell   :${RESET} ${OKGREEN}%-36s${OKCYAN}${RESET}\n" "$SHELL"
-    echo -e "${OKCYAN}  ${RESET}"
-    echo ""
-}
-confirm_installation() {
-    echo ""
-    type_text "   Ready to transform your system into a powerful security platform?" 0.02 "$OKCYAN"
-    echo ""
-    printf "${OKRED}${BOLD}"
-    pulse_effect "    This will install OMINO under $INSTALL_DIR. Continue?" "$OKRED" 2
-    printf "${RESET}"
-    echo ""
-    printf "  ${OKWHITE}[${OKGREEN}Y${OKWHITE}/${OKRED}N${OKWHITE}] ${OKCYAN}➜${RESET} "
-    read -r answer
-    if [[ "$answer" != "y" ]] && [[ "$answer" != "Y" ]]; then
-        echo ""
-        type_text "   Installation cancelled. Goodbye!" 0.03 "$OKRED"
-        show_cursor
-        exit 0
-    fi
-}
-animated_step() {
-    local step_name="$1"
-    local step_color="$2"
-    shift 2
-    local cmd=("$@")
-    printf "  ${step_color}▶${RESET} ${OKWHITE}${step_name}${RESET} "
-    ("${cmd[@]}" 2>/dev/null || true) &
-    local cmd_pid=$!
-    local frame=0
-    while kill -0 $cmd_pid 2>/dev/null; do
-        local spin_char=${SPINNER_FRAMES[$frame]}
-        printf "\r  ${step_color}${spin_char}${RESET} ${OKWHITE}${step_name}${RESET}"
-        frame=$(( (frame + 1) % ${#SPINNER_FRAMES[@]} ))
-        sleep 0.1
-    done
-    wait $cmd_pid
-    local exit_code=$?
     
-    if [[ $exit_code -eq 0 ]]; then
-        printf "\r  ${OKGREEN}✓${RESET} ${OKWHITE}${step_name}${RESET} ${OKGREEN}Complete${RESET}\n"
-    else
-        printf "\r  ${OKRED}✗${RESET} ${OKWHITE}${step_name}${RESET} ${OKORANGE}(may need attention)${RESET}\n"
+    if [[ ! -z $WORKSPACE_DIR ]]; then
+      LOOT_DIR=$WORKSPACE_DIR
     fi
-}
-pkg_install_animated() {
-    local packages=("$@")
-    local total=${#packages[@]}
-    
-    if [[ $total -eq 0 ]]; then
-        return
+    rm -f $INSTALL_DIR/stash.sqlite 2> /dev/null
+    rm -f $INSTALL_DIR/hydra.restore 2> /dev/null
+    rm -f /tmp/update-check.txt 2> /dev/null
+    ls -lh $LOOT_DIR/scans/running_*.txt 2> /dev/null | wc -l 2> /dev/null > $LOOT_DIR/scans/tasks-running.txt 2> /dev/null
+    echo -e "$OKBLUE[*]$RESET Opening loot directory $LOOT_DIR $OKBLUE[$RESET${OKGREEN}OK${RESET}$OKBLUE]$RESET"
+    cd $LOOT_DIR
+    if [[ "$METASPLOIT_IMPORT" == "1" ]]; then
+      echo -e "$OKORANGE + -- --=[ Starting Metasploit service...$RESET"
+      /etc/init.d/metasploit start 2> /dev/null > /dev/null
+      msfdb start
+      echo -e "$OKORANGE + -- --=[ Importing NMap XML files into Metasploit...$RESET"
+      msfconsole -x "workspace -a $WORKSPACE; workspace $WORKSPACE; db_import $LOOT_DIR/nmap/nmap*.xml; hosts; services; exit;" | tee $LOOT_DIR/notes/msf-$WORKSPACE.txt
     fi
-    printf "  ${OKCYAN}${RESET} Installing ${OKYELLOW}%d${RESET} packages...\n" "$total"
-    echo ""
-    local count=0
-    for pkg in "${packages[@]}"; do
-        count=$((count + 1))
-        
-        printf "  ${OKBLUE}[%3d/%3d]${RESET} ${OKWHITE}%-40s${RESET}" "$count" "$total" "$pkg"
-        
-        case "$OS" in
-            debian)
-                apt install -y "$pkg" &>/dev/null &
-                ;;
-            rhel)
-                $PKG_MANAGER install -y "$pkg" &>/dev/null &
-                ;;
-            arch)
-                pacman -S --noconfirm --needed "$pkg" &>/dev/null &
-                ;;
-            opensuse)
-                zypper install -y "$pkg" &>/dev/null &
-                ;;
-            macos)
-                brew install "$pkg" &>/dev/null &
-                ;;
-            *)
-                apt install -y "$pkg" &>/dev/null &
-                ;;
-        esac
-        local pid=$!
-        local dots=0
-        while kill -0 $pid 2>/dev/null; do
-            case $dots in
-                0) printf "\r  ${OKBLUE}[%3d/%3d]${RESET} ${OKWHITE}%-40s${RESET} ${OKCYAN}.  ${RESET}" "$count" "$total" "$pkg" ;;
-                1) printf "\r  ${OKBLUE}[%3d/%3d]${RESET} ${OKWHITE}%-40s${RESET} ${OKCYAN}.. ${RESET}" "$count" "$total" "$pkg" ;;
-                2) printf "\r  ${OKBLUE}[%3d/%3d]${RESET} ${OKWHITE}%-40s${RESET} ${OKCYAN}...${RESET}" "$count" "$total" "$pkg" ;;
-            esac
-            dots=$(( (dots + 1) % 3 ))
-            sleep 0.3
-        done
-        wait $pid
-        if [[ $? -eq 0 ]]; then
-            printf "\r  ${OKBLUE}[%3d/%3d]${RESET} ${OKWHITE}%-40s${RESET} ${OKGREEN}✓${RESET}\n" "$count" "$total" "$pkg"
-        else
-            printf "\r  ${OKBLUE}[%3d/%3d]${RESET} ${OKWHITE}%-40s${RESET} ${OKORANGE}⚠${RESET}\n" "$count" "$total" "$pkg"
-        fi
+    echo -e "$OKORANGE + -- --=[ Generating reports...$RESET"
+    cd $LOOT_DIR/output 2> /dev/null
+    echo -en "$OKGREEN[$OKBLUE"
+    for a in `ls omino-*.txt 2>/dev/null`;
+    do
+      echo "$a" 2> /dev/null | aha 2> /dev/null > $LOOT_DIR/reports/$a.html 2> /dev/null
+      cat "$a" 2> /dev/null | aha 2> /dev/null >> $LOOT_DIR/reports/$a.html 2> /dev/null
+      echo -n '|'
     done
+    echo -en "$OKGREEN]$RESET"
     echo ""
-}
-display_completion() {
-    clear_screen
-    echo ""
-    echo ""
-    echo ""
-    echo -e "${OKGREEN}${BOLD}"
-    echo "         ██████╗ ███╗   ███╗██╗███╗   ██╗ ██████╗        "
-    echo "        ██╔═══██╗████╗ ████║██║████╗  ██║██╔═══██╗       "
-    echo "        ██║   ██║██╔████╔██║██║██╔██╗ ██║██║   ██║       "
-    echo "        ██║   ██║██║╚██╔╝██║██║██║╚██╗██║██║   ██║       "
-    echo "        ╚██████╔╝██║ ╚═╝ ██║██║██║ ╚████║╚██████╔╝       "
-    echo "         ╚═════╝ ╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝ ╚═════╝        "
-    echo ""
-    echo "              ✅ INSTALLATION COMPLETE!"
-    echo ""
-    echo -e "${RESET}"
-    echo ""
-    echo -e "${OKCYAN}    ${OKORANGE}${BOLD}INSTALLATION SUMMARY${RESET}                         ${OKCYAN}║${RESET}"
-    echo -e "${OKCYAN}  ${RESET}"
-    printf "${OKCYAN}  ${RESET}  Install Directory : ${OKGREEN}%-26s${OKCYAN}${RESET}\n" "$INSTALL_DIR"
-    printf "${OKCYAN}  ${RESET}  Loot Directory    : ${OKGREEN}%-26s${OKCYAN}${RESET}\n" "$LOOT_DIR"
-    printf "${OKCYAN}  ${RESET}  OS Detected       : ${OKGREEN}%-26s${OKCYAN}${RESET}\n" "$OS"
-    printf "${OKCYAN}  ${RESET}  Package Manager   : ${OKGREEN}%-26s${OKCYAN}${RESET}\n" "$PKG_MANAGER"
-    echo -e "${OKCYAN}  ${RESET}"
-    echo ""
-    echo -e "${OKYELLOW}${BOLD}  To launch OMINO, type: sudo omino${RESET}"
-    echo ""
-    echo -e "  ${OKMAGENTA}🜛 The Eye Sees All...${RESET}"
-    echo ""
-    echo -e "  ${DIM}Developed by ATHEX BLACK HAT × DIR CYBER${RESET}"
-    echo ""
-    sleep 1
-}
-detect_os() {
-    section_header "System Detection" "🔍" "$OKCYAN"
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        OS="macos"
-        PKG_MANAGER="brew"
-        echo -e "  ${OKGREEN}✓${RESET} Detected: ${BOLD}macOS${RESET}"
-    elif [[ -f /etc/os-release ]]; then
-        . /etc/os-release
-        case "$ID" in
-            ubuntu|debian|kali|parrot)
-                OS="debian"
-                PKG_MANAGER="apt"
-                echo -e "  ${OKGREEN}✓${RESET} Detected: ${BOLD}${PRETTY_NAME}${RESET} ${DIM}(Debian-based)${RESET}"
-                ;;
-            rhel|centos|fedora|rocky|alma|amzn)
-                OS="rhel"
-                PKG_MANAGER=$(command -v dnf &>/dev/null && echo "dnf" || echo "yum")
-                echo -e "  ${OKGREEN}✓${RESET} Detected: ${BOLD}${PRETTY_NAME}${RESET} ${DIM}(RHEL-based)${RESET}"
-                ;;
-            arch|manjaro|endeavouros)
-                OS="arch"
-                PKG_MANAGER="pacman"
-                echo -e "  ${OKGREEN}✓${RESET} Detected: ${BOLD}${PRETTY_NAME}${RESET} ${DIM}(Arch-based)${RESET}"
-                ;;
-            opensuse*|sles)
-                OS="opensuse"
-                PKG_MANAGER="zypper"
-                echo -e "  ${OKGREEN}✓${RESET} Detected: ${BOLD}${PRETTY_NAME}${RESET} ${DIM}(openSUSE-based)${RESET}"
-                ;;
-            *)
-                echo -e "  ${OKRED}✗${RESET} Unsupported distribution: $ID"
-                echo -e "  ${OKYELLOW}Attempting to continue with apt...${RESET}"
-                OS="debian"
-                PKG_MANAGER="apt"
-                ;;
-        esac
+    cd ..
+    chmod 777 -Rf $LOOT_DIR
+    echo -e "$OKORANGE + -- --=[ Sorting all files...$RESET"
+    cat $LOOT_DIR/scans/notifications_new.txt 2> /dev/null >> $LOOT_DIR/scans/notifications.txt 2> /dev/null
+    sort -u $LOOT_DIR/domains/*-full.txt 2> /dev/null > $LOOT_DIR/domains/domains-all-presorted.txt 2> /dev/null
+    sed -E "s/^\.//g" $LOOT_DIR/domains/domains-all-presorted.txt 2> /dev/null | sed -E "s/^\*\.//g" |  tr '[:upper:]' '[:lower:]' | sort -u > $LOOT_DIR/domains/domains-all-presorted2.txt 2> /dev/null
+    sort -u $LOOT_DIR/domains/targets.txt 2> /dev/null > $LOOT_DIR/domains/targets-all-presorted.txt 2> /dev/null
+    sed -E "s/^\.//g" $LOOT_DIR/domains/targets-all-presorted.txt 2> /dev/null | sed -E "s/^\*\.//g" |  tr '[:upper:]' '[:lower:]' | sort -u > $LOOT_DIR/domains/targets-all-sorted.txt 2> /dev/null
+    sort -u $LOOT_DIR/ips/ips-all-unsorted.txt 2> /dev/null > $LOOT_DIR/ips/ips-all-sorted.txt 2> /dev/null
+    sed -i -E 's/address//g' $LOOT_DIR/ips/ips-all-sorted.txt 2> /dev/null
+    sort -u $LOOT_DIR/domains/domains-all-presorted2.txt $LOOT_DIR/domains/targets-all-sorted.txt 2> /dev/null > $LOOT_DIR/domains/domains-all-sorted.txt 2> /dev/null
+    diff $LOOT_DIR/domains/targets-all-sorted.txt $LOOT_DIR/domains/domains-all-sorted.txt 2> /dev/null | grep \> | awk '{print $2}' > $LOOT_DIR/domains/targets-all-unscanned.txt
+    rm -f $LOOT_DIR/domains/targets-all-presorted.txt $LOOT_DIR/domains/targets-all-presorted2.txt 2> /dev/null
+    rm -f $LOOT_DIR/domains/domains-all-presorted.txt $LOOT_DIR/domains/domains-all-presorted2.txt 2> /dev/null
+    sort -u $LOOT_DIR/nmap/openports-unsorted.txt 2> /dev/null > $LOOT_DIR/nmap/openports-sorted.txt 2> /dev/null
+    sort -u $LOOT_DIR/nmap/livehosts-unsorted.txt 2> /dev/null > $LOOT_DIR/nmap/livehosts-sorted.txt 2> /dev/null
+    find $LOOT_DIR/web/ -type f -size -1c -exec rm -f {} \;
+    cd $LOOT_DIR/web/ && rm -f webhosts-all-sorted-* 2> /dev/null
+    cd $LOOT_DIR/domains/ && rm -f domains-all-sorted-* 2> /dev/null
+    cd $LOOT_DIR/nmap/ && rm -f openports-all-sorted-* 2> /dev/null
+    cd $LOOT_DIR/nmap/ && rm -f livehosts-all-sorted-* 2> /dev/null
+    cd $LOOT_DIR/web/ 2> /dev/null
+    egrep -Hi 'HTTP/1.' headers-* 2> /dev/null | cut -d':' -f1 | sed "s/headers\-http\(\|s\)\-//g" | sed "s/\.txt//g" | cut -d \- -f1 | sort -u 2> /dev/null > $LOOT_DIR/web/webhosts-sorted.txt 2> /dev/null
+    split -d -l $MAX_HOSTS -e $LOOT_DIR/web/webhosts-sorted.txt webhosts-all-sorted- 2> /dev/null
+    cd $LOOT_DIR/domains/ 2> /dev/null
+    split -d -l $MAX_HOSTS -e  $LOOT_DIR/domains/domains-all-sorted.txt domains-all-sorted- 2> /dev/null
+    cd $LOOT_DIR/nmap/ 2> /dev/null
+    split -d -l $MAX_HOSTS -e $LOOT_DIR/nmap/openports-sorted.txt openports-all-sorted- 2> /dev/null
+    split -d -l $MAX_HOSTS -e $LOOT_DIR/nmap/livehosts-sorted.txt livehosts-all-sorted- 2> /dev/null
+    echo -e "$OKORANGE + -- --=[ Removing blank screenshots and files...$RESET"
+    chmod 777 -Rf $LOOT_DIR 2> /dev/null
+    cd $LOOT_DIR/screenshots/
+    find $LOOT_DIR/screenshots/ -type f -size -9000c -exec rm -f {} \;
+    find $LOOT_DIR/nmap/ -type f -size -1c -exec rm -f {} \;
+    find $LOOT_DIR/ips/ -type f -size -1c -exec rm -f {} \;
+    find $LOOT_DIR/osint/ -type f -size -1c -exec rm -f {} \;
+    find $LOOT_DIR/vulnerabilities/ -type f -size -1c -exec rm -f {} \;
+    cd $LOOT_DIR
+    if [[ -f $omino_PRO ]]; then
+      wc -l $LOOT_DIR/scans/notifications.txt 2> /dev/null | awk '{print $1}' > $LOOT_DIR/scans/notifications_total.txt 2> /dev/null
+      wc -l $LOOT_DIR/scans/notifications_new.txt 2> /dev/null | awk '{print $1}' > $LOOT_DIR/scans/notifications_new_total.txt 2> /dev/null
+      cat $LOOT_DIR/scans/tasks-running.txt 2> /dev/null > $LOOT_DIR/scans/tasks-running_total.txt 2> /dev/null
+      wc -l $LOOT_DIR/scans/tasks.txt 2> /dev/null | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/tasks_total.txt 2> /dev/null 
+      wc -l $LOOT_DIR/scans/scheduled/*.sh 2> /dev/null | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/scheduled_tasks_total.txt 2> /dev/null 
+      grep "Host\ status" $LOOT_DIR/scans/notifications.txt 2> /dev/null | wc -l | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/host_status_changes_total.txt 2> /dev/null 
+      grep "Port\ change" $LOOT_DIR/scans/notifications.txt 2> /dev/null | wc -l | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/port_changes_total.txt 2> /dev/null 
+      wc -l $LOOT_DIR/domains/domains_new-*.txt 2> /dev/null | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/domain_changes_total.txt 2> /dev/null 
+      cat $LOOT_DIR/web/dirsearch-new-*.txt $LOOT_DIR/web/spider-new-*.txt 2> /dev/null | wc -l | awk '{print $1}' 2> /dev/null > $LOOT_DIR/scans/url_changes_total.txt 2> /dev/null
+      if [[ -f "$LOOT_DIR/notes/notepad.html" ]]; then
+        echo -n "" 2>/dev/null
+      else
+        cp "$INSTALL_DIR/pro/notepad.html" "$LOOT_DIR/notes/notepad.html" 2>/dev/null
+        PRE_NAME=$(echo $WORKSPACE | sed "s/\./-/g")
+        sed -i "s/notepad/notepad-$PRE_NAME/g" "$LOOT_DIR/notes/notepad.html" 2> /dev/null
+      fi
+      if [[ "$omino_AUTOLOAD" = "1" ]] && [[ ! -f "$INSTALL_DIR/pro/settings.php" ]]; then
+          echo -e "$OKORANGE + -- --=[ Loading omino Professional...$RESET"
+          source $INSTALL_DIR/pro.sh
+          sudo $LAST_USER -c $BROWSER $LOOT_DIR/omino-report.html 2> /dev/null > /dev/null &
+      else
+        echo -e "$OKORANGE + -- --=[ Generating omino Professional reports...$RESET"
+        source $INSTALL_DIR/pro.sh
+      fi
     else
-        echo -e "  ${OKORANGE}⚠${RESET} Unable to detect OS. Trying to continue..."
-        OS="debian"
-        PKG_MANAGER="apt"
+      echo ""
+      echo -e "${OKMAGENTA}  ${RESET}  ${BOLD}${OKYELLOW}⚡ UNLOCK THE FULL POWER OF omino ⚡${RESET}${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}                                                            ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE} Sleek Web UI${RESET}                         ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}  Extensive add-ons${RESET}                   ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE} Seamless integrations${RESET}                ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE} Priority support & continuous updates${RESET}${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}            CREATED BY ATHEX BLACK HAT & DIR CYBER           ${OKMAGENTA}${RESET}"
+      echo ""
+      sudo $LAST_USER -c $BROWSER https://github.com/Athexblack/omino 2> /dev/null > /dev/null &
     fi
-    display_system_info
-    sleep 1
+    rm -f $UPDATED_TARGETS 2> /dev/null
+    touch $UPDATED_TARGETS 2> /dev/null
+    echo ""
+    echo -e "$OKORANGE + -- --=[ ${BOLD}Mission Complete!${RESET} $OKORANGE]$RESET"
+    echo -e "${OKMAGENTA}  ⚡ ${OKYELLOW}The eye closes... but it has seen everything.${RESET} ${OKMAGENTA}⚡${RESET}"
+    echo ""
+  fi
 }
-main() {
-    trap 'show_cursor' EXIT INT TERM
-    INSTALL_DIR=/usr/share/omino
-    LOOT_DIR=/usr/share/omino/loot
-    PLUGINS_DIR=/usr/share/omino/plugins
-    GO_DIR=~/go/bin
-    display_banner
-    if [[ "$OS" != "macos" ]] && [[ $EUID -ne 0 ]]; then
-        echo -e "${OKRED}[!] This script must be run as root on Linux systems${RESET}"
-        echo -e "${OKRED}[!] Please run: sudo bash install.sh${RESET}"
-        show_cursor
-        exit 1
-    fi
-    confirm_installation
-    detect_os
-    section_header "Phase 1: Directory Structure" "" "$OKBLUE"
-    animated_step "Creating OMINO directories..." "$OKBLUE" \
-        mkdir -p "$INSTALL_DIR" "$LOOT_DIR" "$PLUGINS_DIR" "$GO_DIR" \
-        "$LOOT_DIR/domains" "$LOOT_DIR/screenshots" "$LOOT_DIR/nmap" \
-        "$LOOT_DIR/reports" "$LOOT_DIR/output" "$LOOT_DIR/osint" \
-        "$LOOT_DIR/workspaces"
-    section_header "Phase 2: System Updates" "" "$OKCYAN"
-    animated_step "Updating package repositories..." "$OKCYAN" \
-        $PKG_MANAGER update -y 2>/dev/null || $PKG_MANAGER update 2>/dev/null || true
-    section_header "Phase 3: Core Dependencies" "" "$OKMAGENTA"
-    local core_packages=(
-        git curl wget sudo gpg
-        nmap whois dnsutils
-        python3 python3-pip
-        ruby golang nodejs npm
-        php jq aha xmlstarlet
-        dos2unix net-tools
-        p7zip-full openssl
-    )
-    pkg_install_animated "${core_packages[@]}"
-    section_header "Phase 4: Security Arsenal" "" "$OKRED"
-    local security_packages=(
-        nikto sqlmap hydra
-        dnsrecon whatweb wafw00f
-        sslscan nbtscan
-        enum4linux
-    )
-    pkg_install_animated "${security_packages[@]}" 2>/dev/null || true
-    section_header "Phase 5: Language Environments" "" "$OKGREEN"
-    animated_step "Configuring Python environment..." "$OKGREEN" \
-        pip3 install --upgrade pip dnspython colorama tldextract urllib3 ipaddress requests 2>/dev/null --break-system-packages 2>/dev/null || pip3 install --upgrade pip dnspython colorama tldextract urllib3 ipaddress requests 2>/dev/null || true
-    animated_step "Configuring Ruby environment..." "$OKRED" \
-        gem install rake ruby-nmap net-http-persistent mechanize text-table public_suffix 2>/dev/null || true
-    animated_step "Configuring Go environment..." "$OKCYAN" \
-        mkdir -p "$GO_DIR"
-    section_header "Phase 6: OMINO Core" "" "$OKORANGE"
-    animated_step "Installing OMINO files..." "$OKORANGE" \
-        cp -Rf ./* "$INSTALL_DIR/" 2>/dev/null || true
-    animated_step "Setting permissions..." "$OKORANGE" \
-        chmod +x "$INSTALL_DIR/omino.sh" 2>/dev/null || chmod +x "$INSTALL_DIR/omino" 2>/dev/null || true
-    section_header "Phase 7: Metasploit Framework" "" "$OKRED"
-    animated_step "Checking Metasploit..." "$OKRED" \
-        command -v msfconsole &>/dev/null || true
-    section_header "Phase 8: Advanced Go Tools" "" "$OKCYAN"
-    if command -v go &>/dev/null; then
-        local go_tools=(
-            "nuclei:github.com/projectdiscovery/nuclei/v2/cmd/nuclei@latest"
-            "subfinder:github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest"
-            "httpx:github.com/projectdiscovery/httpx@latest"
-            "amass:github.com/OWASP/Amass/v3/...@master"
-            "ffuf:github.com/ffuf/ffuf@latest"
-            "gau:github.com/lc/gau@latest"
-        )
-        for tool_info in "${go_tools[@]}"; do
-            IFS=':' read -r tool_name tool_path <<< "$tool_info"
-            animated_step "Installing $tool_name..." "$OKCYAN" \
-                GO111MODULE=on go install -v "$tool_path" 2>/dev/null || true
-        done
-        if command -v nuclei &>/dev/null; then
-            animated_step "Updating Nuclei templates..." "$OKCYAN" \
-                nuclei -update-templates 2>/dev/null || nuclei --update 2>/dev/null || true
-        fi
-    else
-        echo -e "  ${OKORANGE}⚠${RESET} Go not found. Skipping Go tools installation."
-    fi
-    section_header "Phase 9: Python Arsenal" "" "$OKGREEN"
-    local python_tools=(
-        "Sublist3r:https://github.com/aboul3la/Sublist3r.git"
-        "DirSearch:https://github.com/maurosoria/dirsearch.git"
-        "GitGraber:https://github.com/hisxo/gitGraber.git"
-        "LinkFinder:https://github.com/1N3/LinkFinder.git"
-        "MassDNS:https://github.com/blechschmidt/massdns.git"
-        "CMSMap:https://github.com/Dionach/CMSmap.git"
-    )
-    cd "$PLUGINS_DIR" 2>/dev/null || mkdir -p "$PLUGINS_DIR" && cd "$PLUGINS_DIR"
-    for tool_info in "${python_tools[@]}"; do
-        IFS=':' read -r tool_name tool_url <<< "$tool_info"
-        local tool_dir=$(echo "$tool_name" | tr '[:upper:]' '[:lower:]')
-        if [[ ! -d "$tool_dir" ]]; then
-            animated_step "Cloning $tool_name..." "$OKGREEN" \
-                git clone "$tool_url" "$tool_dir" 2>/dev/null || true
-        fi
-    done
-    section_header "Phase 10: System Integration" "" "$OKMAGENTA"
-    local omino_exec=""
-    if [[ -f "$INSTALL_DIR/omino.sh" ]]; then
-        omino_exec="$INSTALL_DIR/omino.sh"
-    elif [[ -f "$INSTALL_DIR/omino" ]]; then
-        omino_exec="$INSTALL_DIR/omino"
-    fi
-    if [[ -n "$omino_exec" ]]; then
-        animated_step "Creating OMINO symlink..." "$OKMAGENTA" \
-            ln -fs "$omino_exec" /usr/local/bin/omino 2>/dev/null || ln -fs "$omino_exec" /usr/bin/omino 2>/dev/null || true
-        
-        ln -fs "$omino_exec" /usr/bin/omino 2>/dev/null || true
-        chmod +x "$omino_exec" 2>/dev/null || true
-        chmod +x /usr/local/bin/omino 2>/dev/null || true
-        chmod +x /usr/bin/omino 2>/dev/null || true
-    fi
-    animated_step "Creating workspace links..." "$OKMAGENTA" \
-        ln -fs "$LOOT_DIR/workspaces" /workspace 2>/dev/null || true
-    section_header "Phase 11: Configuration" "" "$OKBLUE"
-    if [[ "$OS" != "macos" ]]; then
-        if [[ -f "$INSTALL_DIR/omino.conf" ]]; then
-            animated_step "Setting up configuration files..." "$OKBLUE" \
-                cp -f "$INSTALL_DIR/omino.conf" /root/.omino.conf 2>/dev/null || true
-        fi
-    fi
-    echo ""
-    if ! grep -q "omino" ~/.bashrc 2>/dev/null; then
-        echo "alias omino='sudo /usr/local/bin/omino'" >> ~/.bashrc 2>/dev/null || true
-        echo -e "  ${OKGREEN}✓${RESET} Added OMINO alias to ~/.bashrc"
-    fi
-    section_header "Finalizing" "" "$DIM"
-    animated_step "Cleaning temporary files..." "$DIM" \
-        rm -rf /tmp/msfinstall /tmp/arachni* /tmp/gobuster* 2>/dev/null || true
-    CLEANUP_DONE=true
-    display_completion
-    show_cursor
-    echo ""
-    echo -e "  ${OKGREEN}Run: source ~/.bashrc${RESET}"
-    echo -e "  ${OKGREEN}Then: sudo omino -t example.com${RESET}"
-    echo ""
-}
-if [[ "$1" == "force" ]] || [[ "$1" == "-y" ]] || [[ "$1" == "--yes" ]]; then
-    FORCE_MODE=true
+
+if [[ "$REIMPORT" = "1" ]]; then
+  if [[ ! -z "$WORKSPACE_DIR" ]]; then
+    LOOT="1"
+    loot
+    exit
+  fi
 fi
-main "$@"
+
+if [[ "$REIMPORT_ALL" = "1" ]]; then
+  if [[ ! -z "$WORKSPACE_DIR" ]]; then
+    touch $WORKSPACE_DIR/domains/targets.txt $WORKSPACE_DIR/domains/targets-all-sorted.txt $WORKSPACE_DIR/domains/domains-all-sorted.txt
+    cat $WORKSPACE_DIR/domains/targets.txt $WORKSPACE_DIR/domains/targets-all-sorted.txt $WORKSPACE_DIR/domains/domains-all-sorted.txt | sort -u > $WORKSPACE_DIR/scans/updated.txt
+    rm -f $WORKSPACE_DIR/nmap/openports-unsorted.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/nmap/openports-sorted.txt 2> /dev/null
+    rm -f $WORKSPACE_DIR/reports/host-table-report.csv 2> /dev/null
+    LOOT="1"
+    loot
+    exit
+  fi
+fi
+
+if [[ "$RELOAD" = "1" ]]; then
+  if [[ ! -z "$WORKSPACE_DIR" ]]; then
+    $BROWSER $WORKSPACE_DIR/omino-report.html 2> /dev/null > /dev/null &
+    exit
+  fi
+fi
+
+if [[ ${TARGET:0:1} =~ $REGEX ]];
+then
+  SCAN_TYPE="IP"
+else
+  SCAN_TYPE="DOMAIN"
+fi
+
+# INITILIZE
+init
+
+if [[ ! -f /tmp/update-check.txt ]]; then
+  # CHECK CONNECTION STATUS
+  check_online
+fi
+
+if [[ ! -f /tmp/update-check.txt ]]; then
+  # CHECK FOR UPDATES
+  check_update
+fi
+
+# CHECK FOR BLACKARCH LINUX
+if grep -q BlackArch /etc/issue; then
+  DISTRO='blackarch'
+  echo "Detected BlackArch GNU/Linux"
+  INSTALL_DIR=$(pwd)
+  echo "Setting current path to $INSTALL_DIR"
+fi
+
+source modes/discover.sh
+source modes/flyover.sh
+source modes/vulnscan.sh
+source modes/fullportonly.sh
+source modes/web.sh
+source modes/webporthttp.sh
+source modes/webporthttps.sh
+source modes/webscan.sh
+source modes/massweb.sh
+source modes/masswebscan.sh
+source modes/massvulnscan.sh
+source modes/massportscan.sh
+source modes/stealth.sh
+source modes/airstrike.sh
+source modes/nuke.sh
+source modes/normal.sh
+
+rm -f /tmp/update-check.txt 2> /dev/null
+
+exit 0
