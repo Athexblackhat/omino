@@ -1,7 +1,7 @@
 #!/bin/bash
-# ╔═╗╔╦╗╦╔╗╔╔═╗ 
-# ║ ║║║║║║║║║ ║  
-# ╚═╝╩ ╩╩╝╚╝╚═╝  
+# ╔═╗╔╦╗╦╔╗╔╔═╗  ╔═╗╔═╗
+# ║ ║║║║║║║║║ ║  ║  ║╣  
+# ╚═╝╩ ╩╩╝╚╝╚═╝  ╚═╝╚═╝
 # + -- --=[ omino Black Hat Edition
 # + -- --=[ The Eye That Sees All
 # + -- --=[ Advanced Security Reconnaissance Suite
@@ -32,6 +32,8 @@ TERM_WIDTH=$(tput cols 2>/dev/null || echo 80)
 hide_cursor() { printf "\e[?25l"; }
 show_cursor() { printf "\e[?25h"; }
 clear_line() { printf "\e[2K\r"; }
+
+# Spinning animation for long operations
 spinner() {
     local message="$1"
     local pid=$2
@@ -323,6 +325,7 @@ function check_online {
   fi
 }
 
+# COMMAND LINE SWITCHES
 POSITIONAL=()
 while [[ $# -gt 0 ]]
 do
@@ -331,7 +334,7 @@ key="$1"
 case $key in
     -h|--help)
     help
-    shift 
+    shift # past argument
     ;;
     -c|--config)
     CONFIG="$2"
@@ -347,66 +350,66 @@ case $key in
     ;;
     -t)
     TARGET="$2"
-    shift 
-    shift 
+    shift # past argument
+    shift # past argument
     ;;
     -b)
     AUTO_BRUTE="1"
-    shift 
+    shift # past argument
     ;;
     -fp|--fullportscan)
     FULLNMAPSCAN="1"
-    shift 
+    shift # past argument
     ;;
     -o|--osint)
     OSINT="1"
-    shift 
+    shift # past argument
     ;;
     -re|--recon)
     RECON="1"
-    shift 
+    shift # past argument
     ;;
     -m)
     MODE="$2"
-    shift 
-    shift 
+    shift # past argument
+    shift # past argument
     ;;
     -p)
     PORT="$2"
-    shift 
-    shift 
+    shift # past argument
+    shift # past argument
     ;;
     -f|--file)
     FILE="$(realpath $2)"
-    shift 
-    shift 
+    shift # past argument
+    shift # past argument
     ;;
     -ri|--reimport)
     REIMPORT="1"
-    shift 
+    shift # past argument
     ;;
     -ria|--reimportall)
     REIMPORT_ALL="1"
-    shift 
+    shift # past argument
     ;;
     -rl|--reload)
     RELOAD="1"
-    shift 
+    shift # past argument
     ;;
     -n|--noreport)
     REPORT="0"
-    shift 
+    shift # past argument
     ;;
     -nl|--noloot)
     LOOT="0"
     NOLOOT="1"
-    shift 
+    shift # past argument
     ;;
     -w)
     WORKSPACE="$(echo $2 | tr / -)"
     WORKSPACE_DIR="$INSTALL_DIR/loot/workspace/$WORKSPACE"
-    shift 
-    shift 
+    shift # past argument
+    shift # past argument
     ;;
     -s|--schedule)
     if [[ -z "$WORKSPACE" ]]; then
@@ -423,8 +426,8 @@ case $key in
       echo "You need to specify either daily, weekly or monthly for the scheduled scan argument."
       exit
     fi
-    shift 
-    shift 
+    shift # past argument
+    shift # past argument
     ;;
     -d|--delete)
     logo
@@ -435,7 +438,7 @@ case $key in
     echo "Workspace /usr/share/omino/loot/workspace/$WORKSPACE/ was removed."
     omino -w default --reimport
     exit
-    shift 
+    shift # past argument
     ;;
     -dh|--delete-host)
     echo "Removing $TARGET from $WORKSPACE"
@@ -459,7 +462,7 @@ case $key in
     ps -ef | egrep "$TARGET|omino"
     ps -ef | egrep "omino" | awk '{print $2}' | xargs -i sudo kill -9 {} 
     exit
-    shift 
+    shift # past argument
     ;;
     --list)
     logo
@@ -500,13 +503,13 @@ case $key in
     UPDATE="1"
     update
     exit
-    shift 
+    shift # past argument
     ;;
     *)    # unknown option
     POSITIONAL+=("$1")
     echo "Unknown scan option $POSITIONAL...refer to the help menu for usage details."
     exit
-    shift 
+    shift # past argument
     ;;
 esac
 done
@@ -705,11 +708,11 @@ function loot {
       echo -e "${OKMAGENTA}  ${RESET}  ${BOLD}${OKYELLOW}⚡ UNLOCK THE FULL POWER OF omino ⚡${RESET}${OKMAGENTA}${RESET}"
       echo -e "${OKMAGENTA}  ${RESET}"
       echo -e "${OKMAGENTA}  ${RESET}                                                            ${OKMAGENTA}${RESET}"
-      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE} Sleek Web UI${RESET}                         ${OKMAGENTA}${RESET}"
-      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}  Extensive add-ons${RESET}                   ${OKMAGENTA}${RESET}"
-      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE} Seamless integrations${RESET}                ${OKMAGENTA}${RESET}"
-      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE} Priority support & continuous updates${RESET}${OKMAGENTA}${RESET}"
-      echo -e "${OKMAGENTA}  ${RESET}            CREATED BY ATHEX BLACK HAT & DIR CYBER           ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}💻 Sleek Web UI${RESET}                         ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}🛠️  Extensive add-ons${RESET}                   ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}🔄 Seamless integrations${RESET}                ${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}  ${OKWHITE}🤝 Priority support & continuous updates${RESET}${OKMAGENTA}${RESET}"
+      echo -e "${OKMAGENTA}  ${RESET}          CREATED BY ATHEX BLACK HAT & DIR CYBER             ${OKMAGENTA}${RESET}"
       echo ""
       sudo $LAST_USER -c $BROWSER https://github.com/Athexblack/omino 2> /dev/null > /dev/null &
     fi
